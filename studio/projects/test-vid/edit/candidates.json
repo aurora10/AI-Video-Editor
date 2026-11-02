@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "projectId": "prj_0e570872",
+  "sourceId": "src-01",
+  "targetDurationSec": 45,
+  "generatedAt": "2026-11-02T17:14:08.280Z",
+  "refinement": {
+    "movedOutOfSilence": 47,
+    "runs": 141,
+    "maxShiftMs": 1660,
+    "stillInSilence": 19,
+    "wordsBefore": 720,
+    "wordsAfter": 720
+  },
+  "candidates": [
+    {
+      "id": "cand-1",
+      "startMs": 410620,
+      "endMs": 463380,
+      "durationSec": 52.8,
+      "words": 99,
+      "wpm": 150,
+      "deadAirMs": 13123,
+      "startsClean": true,
+      "endsClean": true,
+      "score": 0.799,
+      "openingLine": "По вопросу свободы воли могу сказать следующее Нигде в Библии ни в Новом ни",
+      "closingLine": "мы чтобы нас родили чтобы нас появили на этот свет"
+    },
+    {
+      "id": "cand-2",
+      "startMs": 287080,
+      "endMs": 347100,
+      "durationSec": 60,
+      "words": 132,
+      "wpm": 149,
+      "deadAirMs": 6743,
+      "startsClean": true,
+      "endsClean": true,
+      "score": 0.795,
+      "openingLine": "И если верить современному христианству ну вообще любой христианской динаминации то получается что Бог",
+      "closingLine": "бы пришел Иисус как чтобы искупить всех жителей на земле"
+    },
+    {
+      "id": "cand-3",
+      "startMs": 244400,
+      "endMs": 285460,
+      "durationSec": 41.1,
+      "words": 73,
+      "wpm": 132,
+      "deadAirMs": 8001,
+      "startsClean": true,
+      "endsClean": true,
+      "score": 0.73,
+      "openingLine": "Значит Бог проиграл а дьявол выиграл То есть получается что дьявол получил таки себе",
+      "closingLine": "он еще любовь еще очень много качеств у него безграничных"
+    }
+  ]
+}
