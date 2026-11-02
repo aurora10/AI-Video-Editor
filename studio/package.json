@@ -11,7 +11,10 @@
     "typecheck": "tsc -b",
     "test": "vitest run",
     "doctor": "tsx scripts/doctor.ts",
-    "bench": "tsx scripts/bench.ts"
+    "bench": "tsx scripts/bench.ts",
+    "ingest": "tsx scripts/ingest.ts",
+    "probe-clip": "tsx scripts/ingest.ts",
+    "transcribe": "tsx scripts/transcribe.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
@@ -25,6 +28,7 @@
     "react-dom": "^19.3.1",
     "tsx": "^4.19.2",
     "typescript": "^5.9.2",
-    "vitest": "^3.0.0"
+    "vitest": "^3.0.0",
+    "@dsh-video/core": "workspace:*"
   }
 }

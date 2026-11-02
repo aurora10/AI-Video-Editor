@@ -7,6 +7,7 @@
  * than a QA finding.
  */
 export * from './schema.js'
+export * from './analysis.js'
 
 /** Bumped whenever `resolve()` output could change for an unchanged EDL. */
 export const RESOLVER_VERSION = 0

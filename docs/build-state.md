@@ -2,7 +2,7 @@
 
 One row per step. **A step is `pass` only when the verification command's output is pasted here.** States: `todo · wip · pass · fail · blocked · cut`.
 
-Last updated: session 3 — **A0 · S2 · S3 all pass.** Both architecture gates are closed; phase B is next and needs only a real clip.
+Last updated: session 4 — real footage received (**4K60 HEVC, 8 min**). **B1 audio ✓ · B3 silence ✓ · B2 code+tests ✓ (live run blocked on key)** · preview/scrub proxies rendering.
 
 ## Gates
 
@@ -31,9 +31,9 @@ Last updated: session 3 — **A0 · S2 · S3 all pass.** Both architecture gates
 
 | Step | State | Verification | Notes |
 |---|---|---|---|
-| B1 probe/proxy/audio | todo | — | needs a real clip (B-2) |
-| B2 ASR seam + OpenAI adapter | **blocked** | — | code is unblocked (fixture-tested); live verify needs `OPENAI_API_KEY` |
-| B3 silence map | todo | — | — |
+| B1 probe/proxy/audio | **wip** | probe: 3840×2160@60.04 (VFR flag: no) · hevc · 2.71 GB · 480.0 s · aac 2ch/48 kHz — 0.4 s · fingerprint (head+tail+size) 0.0 s · **audio ✓** 48 kHz stereo 92.2 MB + 16 kHz mono **15.4 MB** (under the 25 MB ASR limit), 480.02 s · preview + scrub rendering | **Ingest was reordered by measurement** — see findings. Two self-inflicted bugs fixed: `.part` suffix broke ffmpeg's muxer inference; a killed encode left a file that looked complete (now atomic rename + per-step cache) |
+| B2 ASR seam + OpenAI adapter | **code pass / live blocked** | `packages/host-ingest/src/asr/openai.ts` + 8 tests green: refuses non-`whisper-*` models (no word timestamps), maps verbose_json → validated `Transcript` with stable `w-####` ids, sends both `timestamp_granularities[]`, retries 5xx but not 4xx, computes cost, fails loudly on zero words; `parseSilencedetect` covered too | **13/13 tests pass.** Live run: `pnpm transcribe test-vid` stops cleanly with "OPENAI_API_KEY is not set" and names the prepared 15.4 MB audio |
+| B3 silence map | **pass** | `detectSilence` on the real 8-min audio: **136 regions, 123.9 s of silence (25.8 % of the file)**, longest pauses 3.8–6.0 s, 180 regions under 400 ms; detected in **1.07 s** (vs ~35 min to decode the video) | This is the deterministic basis for "cut every pause" |
 | B4 face tracks | todo | — | ship `faces-null` if ONNX fights back |
 | B5 resolver + projection | todo | — | golden snapshots + projection property |
 
@@ -84,6 +84,14 @@ Last updated: session 3 — **A0 · S2 · S3 all pass.** Both architecture gates
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## Findings worth keeping (session 4)
+
+1. **4K60 HEVC decode on this machine is 0.24× realtime** (10 s slice → 41.5 s; VideoToolbox *slower* at 0.19×). An 8-minute master costs **~35–45 min** to ingest; a 14-minute one would be ~90 min. Ingest is now ordered audio → preview → scrub, with the scrub proxy derived from the 540p preview instead of the master (one 4K decode, not two).
+2. **Audio work is essentially free by comparison**: extraction in seconds, silence map in 1.07 s for 8 minutes.
+3. **25.8 % of this clip is dead air** — the pause map is the largest single source of cut material, and it needs no model.
+4. Two bugs of my own, both now guarded by design: `.part` suffixes break ffmpeg muxer inference (keep the extension); a killed encode leaves a file that "exists" and would be cached as complete forever (atomic rename).
+5. The project record is written **before** proxies finish, so transcription can start while a long encode runs.
+
 ## Human checkpoints (the user's eyes; I cannot see images)
 
 | # | When | What to look at |
@@ -101,7 +109,7 @@ Last updated: session 3 — **A0 · S2 · S3 all pass.** Both architecture gates
 | # | Need | Blocks | Status |
 |---|---|---|---|
 | B-1 | **`OPENAI_API_KEY`** (provider decided: OpenAI; key still needed for B2's live verify) | real transcription | **open** |
-| B-2 | one real clip in `studio/fixtures/incoming/` (spec in that folder's README) | B1 onward for real-footage validation | **open — user will supply, location requested** |
+| B-2 | one real clip | B1 onward | **resolved** — `test-vid.mp4`, 4K60 HEVC, 8 min, 2.71 GB |
 | B-3 | caption fonts (Q2) | D1 typography | open (lookalikes until then) |
 | B-4 | ~~pane interaction depth (Q3)~~ | — | **resolved: deferred; F4 is a 3h experiment** |
 | B-5 | vision QA consent (Q9) | G4 | open |

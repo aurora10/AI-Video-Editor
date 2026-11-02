@@ -1,0 +1,15 @@
+{
+  "name": "@dsh-video/host-ingest",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    }
+  },
+  "dependencies": {
+    "@dsh-video/core": "workspace:*"
+  }
+}
