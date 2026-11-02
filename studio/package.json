@@ -16,7 +16,8 @@
     "probe-clip": "tsx scripts/ingest.ts",
     "transcribe": "tsx scripts/transcribe.ts",
     "qa-transcript": "tsx scripts/qa-transcript.ts",
-    "cut-plan": "tsx scripts/cut-plan.ts"
+    "cut-plan": "tsx scripts/cut-plan.ts",
+    "verify-captions": "tsx scripts/verify-captions.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

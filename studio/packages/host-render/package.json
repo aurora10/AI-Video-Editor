@@ -1,0 +1,9 @@
+{
+  "name": "@dsh-video/host-render",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./lib/index.js",
+  "exports": { ".": { "default": "./lib/index.js" } },
+  "dependencies": { "@dsh-video/core": "workspace:*" }
+}

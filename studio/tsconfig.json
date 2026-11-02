@@ -6,6 +6,9 @@
     },
     {
       "path": "./packages/host-ingest"
+    },
+    {
+      "path": "./packages/host-render"
     }
   ]
 }
