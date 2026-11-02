@@ -1,0 +1,13 @@
+# DSH Studio — the install surface.
+#
+# A bundle patch overlay: rows are named by package so Node resolution finds the
+# installed code. The webserver port is pinned so this never fights the user's
+# running GUI on 3080.
+- id: webserver
+  config:
+    host: 127.0.0.1
+    port: 3099
+
+- insert:
+    - id: video-client-pane
+      name: 'dsh-video-client-pane'

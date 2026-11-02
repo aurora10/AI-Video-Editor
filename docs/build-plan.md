@@ -120,10 +120,11 @@ proofs/             measured evidence, kept
 - **Verify:** on a real clip of the user's: 270p all-intra (`ffprobe` → `nb_frames`, every frame `key_frame=1` on first 30), 540p CFR with GOP 15 (`ffprobe -show_frames | grep key_frame` spacing), 16 kHz mono WAV; re-run is a no-op (mtime + hash unchanged, log says `cached`).
 - **Effort:** 1 h.
 
-### B2 — **ASR provider seam** *(blocked: Q15 — needs a key)*
-- **Files:** `host-ingest/src/asr/{index.ts,elevenlabs.ts,local.ts}`, cache at `analysis/transcript.<src>.json`.
-- **Interface:** `transcribe(audioPath, opts): Promise<Transcript>`; adapter owns upload/poll/retry; result normalised to our `Word[]`.
-- **Verify:** 3 clips (clean speech, speech over music, speech with long pauses) → monotonic `startMs`, no overlapping words beyond 60 ms, word count within ±5% of `ffprobe`-visible speech duration, `provider`+`model`+`costUsd` recorded, second run cached (0 API calls — assert via a request counter).
+### B2 — **ASR provider seam: OpenAI `whisper-1`** *(blocked: needs the key)*
+- **Files:** `host-ingest/src/asr/{index.ts,openai.ts,local.ts}`, cache at `analysis/transcript.<src>.json`.
+- **Interface:** `transcribe(audioPath, opts): Promise<Transcript>`; adapter owns upload/retry; result normalised to our `Word[]`.
+- **OpenAI contract (locked):** `POST https://api.openai.com/v1/audio/transcriptions`, `model=whisper-1`, `response_format=verbose_json`, `timestamp_granularities[]=word` + `[]=segment`, `language` hint when known. 16 kHz mono WAV; chunk at silence boundaries if >25 MB. Word ids assigned deterministically from index so re-runs are stable. **Do not switch to `gpt-4o-transcribe` — it drops word timestamps.**
+- **Verify:** on 3 clips (clean speech; speech over music; long pauses) → monotonic `startMs`, no word overlap beyond 60 ms, word count within ±5% of `ffprobe`-visible speech duration, `provider`/`model`/`costUsd` recorded, second run cached (0 network calls — assert with a request counter), and a **contract test against a recorded response fixture** so the adapter is testable without a key.
 - **Effort:** 1–1.5 h.
 
 ### B3 — Silence map
@@ -215,7 +216,7 @@ Wire `review.submit` to `agent.followup` (from A4), including the `<video_review
 | **F1** | Pane shell: `panel.state` fetch, `<video>` on the 270p proxy, program-time → source-time mapping, transport controls | Playhead matches frame index for 20 sampled positions (asserted in a jsdom test + manual spot check) |
 | **F2** | Overlay compositing from the **same** CSS module + GSAP timelines the renderer uses | For 10 sampled frames, DOM geometry (box x/y/w/h) equals the resolved geometry scaled — asserted numerically, no eyeballing |
 | **F3** | Timeline bands, segment states, notes rail, Send notes | Segmentation states come from SSE, not from a separate store; HMR dispose test passes |
-| **F4** | Direct manipulation → relative patch + reconcile to solver output; "verify this frame" stills | A 40 px drag produces one patch with `dxPx:40`, a new rev, and ≥1 stale segment — asserted end-to-end in a test that drives the pane in jsdom |
+| **F4** | **Timeboxed 3-hour experiment** (Q3 deferred — decide by using it): drag/resize overlays → relative patch → reconcile to solver; "verify this frame" stills | A 40 px drag produces one patch with `dxPx:40`, a new rev, and ≥1 stale segment — asserted in a jsdom test. **If the experiment does not feel good in 3 hours, cut it and ship F1–F3**; paste the finding into the ledger |
 | **F5** | Lint badges on the timeline | A planted face-overlap shows a badge at the right frame |
 
 **Human checkpoints:** H3 (pane plays + scrubs), H4 (drag a caption, it feels right), H5 (notes rail usable with 7 notes).

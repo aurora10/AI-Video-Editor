@@ -1019,7 +1019,7 @@ Note the precedence order, which is a design decision worth stating: **rule viol
 | proxy (scrub) | `ffmpeg -i src -vf scale=-2:270 -c:v libx264 -g 1 -crf 30 -an` | All-intra for instant seek; ~15–40 MB/min |
 | proxy (preview) | `ffmpeg -i src -vf scale=-2:540,fps=30 -c:v libx264 -g 15 -keyint_min 15 -sc_threshold 0 -crf 21 -c:a aac` | Fixed GOP so segment boundaries snap cheaply |
 | audio | `ffmpeg -i src -vn -ac 2 -ar 48000 -c:a pcm_s16le` | Mono extraction for transcription too |
-| transcribe | **Hosted ASR by default** through a `TranscriptionProvider` seam: extract 16 kHz mono WAV, upload, poll, store word-level JSON. Default ElevenLabs Scribe (~$0.22/hr, word timestamps, the reference's own choice); Deepgram/Groq/OpenAI-compatible adapters behind the same interface; `local:distil-small.en` retained for offline or no-key operation. Batched per source, cached by `(audioSha256, provider, model)` | Language autodetect; per-word confidence kept; provider + cost recorded on the transcript |
+| transcribe | **Hosted ASR through the `TranscriptionProvider` seam. Default: OpenAI `whisper-1`** — `POST /v1/audio/transcriptions` with `response_format=verbose_json` and `timestamp_granularities[]=word` + `[]=segment`. Extract 16 kHz mono WAV (mono; chunk at silence boundaries if over the 25 MB limit), one call per source, normalise `words[].word/start/end` into our `Word[]` with deterministic ids, cache by `(audioSha256, provider, model, granularity)`. **Word timestamps exist only on `whisper-1`, not on the `gpt-4o-transcribe` family — never "upgrade" the model without checking that.** Published price ≈ $0.006/min (~$0.36/hr), ~1.6× the reference's ElevenLabs figure: fine for the accuracy gain, confirm on the bill. `local:distil-small.en` stays as the no-key/offline fallback | Language autodetect (hint when known); segment texts kept for chapter/reel detection; provider + model + `costUsd` recorded on the transcript |
 | silence | energy + VAD over the audio; classify `silence` / `breath` / `filler` | Feeds both cutting and caption hanging |
 | faces | sample 3 fps, detect + track, smooth with a 5-frame median | Feeds safe zones and 9:16 reframe |
 | beats | onset detection over music only | Optional in v1 |
@@ -1412,7 +1412,7 @@ cost_video = Σ_stages (in_tokens × p_in(model) + out_tokens × p_out(model))  
            + render_minutes × p_compute                                       # local: electricity, not money
 ```
 
-**Pricing must be filled in from the current DeepSeek price sheet before Phase 2 sign-off.** Do not estimate vendor pricing from memory in an engineering document; the ledger table in `project.json` records *measured* tokens per model, so the first week of real use produces the grounded numbers, and §11.4's guard is written against measured, not assumed, cost.
+**ASR is metered per minute** (OpenAI `whisper-1` ≈ $0.006/min → a 14-minute source ≈ $0.08, negligible next to one review round). **LLM pricing must be filled in from the current DeepSeek price sheet before Phase 2 sign-off.** Do not estimate vendor pricing from memory in an engineering document; the ledger table in `project.json` records *measured* tokens per model, so the first week of real use produces the grounded numbers, and §11.4's guard is written against measured, not assumed, cost.
 
 ### 11.4 Budget guard (FR-08, FR-84)
 
@@ -1548,7 +1548,7 @@ Pixel-perfect equality of Chromium output across macOS/Linux/Windows (documented
 | ADR-010 | Two render grades: preview 540p / final 1080p, separate segment namespaces | Iteration cheap, delivery good; matches the reference's 720p-then-1080p logic | Yes |
 | ADR-011 | Relative deltas for direct manipulation | Absolute positions break on re-flow | No |
 | ADR-012 | Rule violations warn in preview, soft-block `final` | Visible objection beats silent correction | Yes |
-| ADR-013 | **Hosted ASR by default, local fallback**; faces and encoding stay on-device; vision QA opt-in | Hosted transcription is better and much faster than CPU whisper on the target hardware, and it is the single highest-leverage artifact in the pipeline — "let the AI do the heavy lifting". Video never leaves the machine | Yes (flip the provider setting to `local`) |
+| ADR-013 | **Hosted ASR by default (OpenAI `whisper-1`), local fallback**; faces and encoding stay on-device; vision QA opt-in | Hosted transcription is better and much faster than CPU whisper on the target hardware, and it is the single highest-leverage artifact in the pipeline — "let the AI do the heavy lifting". Video never leaves the machine | Yes (flip the provider setting to `local`) |
 | ADR-014 | 8 presets in v1, not 20+ | Quality per preset (golden frames, inspector, tier fallback) beats breadth | Yes |
 
 ---
@@ -1561,7 +1561,7 @@ These can still change the design. Answers before week 1 avoid rework; the ones 
 |---|---|---|---|
 | **Q1** | **Scope ladder (§12.2): confirm MVP+v1.0 (8 weeks) as the target, or insist on all of v1.1 in one push (12 weeks)?** | Determines whether podcast/multi-cam and batch land now or next cycle | Plan MVP+v1.0; v1.1 as a follow-on |
 | **Q2** | Do you have brand assets/specs — fonts (the reference uses Ivy Presto), caption style, colour, logo, safe-area conventions? | Typography quality is the single most visible thing; without fonts we ship approximations that get restyled later | Ship 8 presets with licensed lookalikes (Inter Tight / Archivo / Bebas-style) and swap on request |
-| **Q3** | **Pane interaction level: is "review + notes + drag overlays" enough, or must v1 also let you trim/move clips on the timeline?** (blocking, Phase 1) | Timeline NLE editing is a 3–5 week addition and changes the pane's architecture | v1 = drag overlays only; clip trimming via notes/chat; timeline NLE deferred |
+| **Q3** | ~~Pane interaction level~~ **Deferred — "let's play with it later."** Ship review + notes first (F1–F3), then a **timeboxed 3-hour drag experiment (F4)** so the decision is made by using it. No architecture change needed: overlays already move by relative-delta patches, so direct manipulation is purely additive | — | F1–F3 committed · F4 = experiment · timeline NLE still out of scope |
 | **Q4** | Typical footage: how many cameras, what resolution/fps (4K60 iPhone? 1080p webcam?), and typical raw length? | Decides proxy settings, worker defaults, whether 4K finals are local-feasible | Assume single 4K30/1080p30 source, 3–20 min raw |
 | **Q5** | Target platforms and their specs (TikTok/Reels/Shorts 9:16, YouTube 16:9, LinkedIn 1:1?) and do you want per-platform safe areas configured? | Drives `OutputTarget` defaults and the safe-area rules | 9:16 + 16:9, standard safe areas |
 | **Q6** | Will clients/reviewers need to leave notes too (share link), or is the reviewer always you? | Determines whether review state needs identities, threads and approvals in v1 | Single reviewer; multi-reviewer deferred |
@@ -1573,8 +1573,8 @@ These can still change the design. Answers before week 1 avoid rework; the ones 
 | **Q12** | Do you want this document split for the team (architecture / pane / renderer / skills as separate files)? | Easier review per owner, more files to keep in sync | Keep one file; split when a second person joins |
 | **Q13** | For reels-from-long-form: should the agent *choose* the highlight windows (autonomous) or should you mark them and have it build? | Changes the UX of D6 substantially | Agent proposes 3–5 candidates with a one-line rationale each; you pick |
 | **Q14** | Naming: "DSH Studio", or something else? (affects package scope and pane label) | Cheap to change now, annoying later | `dsh-studio` scope, pane labelled "Studio" |
-| **Q15** | **Which hosted ASR provider do you already have a key for — ElevenLabs (the reference's choice, ~$0.22/hr, best word-level timestamps), Deepgram, Groq (cheapest and fastest), or OpenAI?** (blocking, Phase B2) | The adapter is ~100 lines either way, but a key is a hard blocker for the first real transcription | ElevenLabs adapter first; the others sit behind the same seam |
-| **Q16** | Cloud ASR means audio leaves the machine. Acceptable for all footage, or should individual projects be markable "no upload" and fall back to local whisper? | Affects the settings card and a per-project flag; matters for client work under NDA | Upload by default, per-project "keep local" switch |
+| **Q15** | ~~Which ASR provider?~~ **Answered: OpenAI.** Adapter targets `whisper-1` + `timestamp_granularities[]=word` (ADR-013, §8.4). The key is still needed for B2's live verification | — | `OPENAI_API_KEY` in `~/.dsh/.credentials.yaml` or `studio/.env` |
+| **Q16** | Audio leaves the machine for transcription. Fine for all footage, or should individual projects be markable "no upload"? | Matters for client work under NDA; the flag is ~20 lines | Upload by default (implied by choosing OpenAI); a per-project `keepLocal` flag lands in v1.1 unless you say otherwise |
 
 ---
 

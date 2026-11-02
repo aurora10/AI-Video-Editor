@@ -36,3 +36,6 @@ proofs/**/out/
 # os
 .DS_Store
 Thumbs.db
+
+# spike profile home
+studio/.dsh-home/

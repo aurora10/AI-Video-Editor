@@ -2,7 +2,7 @@
 
 One row per step. **A step is `pass` only when the verification command's output is pasted here.** States: `todo · wip · pass · fail · blocked · cut`.
 
-Last updated: session 1 — cleanup done, plan written, **A0 pass**.
+Last updated: session 2 — decisions locked (OpenAI ASR, footage pending, Q3 deferred); **A0 pass · S2 pass · A1 pass**; awaiting the visual confirmation (H0).
 
 ## Gates
 
@@ -10,17 +10,17 @@ Last updated: session 1 — cleanup done, plan written, **A0 pass**.
 |---|---|---|---|
 | S0 segment-cache mechanism | **pass** | `proofs/segment-cache/`: 14.2 s cold vs 4.2 s incremental (3.37×), untouched segments sha256-identical, caption band YMAX 209→235 | pre-spike; ADR-005 evidence-backed |
 | S1 `agent.followup` from host plugin | todo | — | A4 |
-| S2 out-of-tree client bundle boots | todo | — | **A1 — architecture gate** |
+| S2 out-of-tree client bundle boots | **pass** | `GET /` → 200 · boot graph row `dsh-video-client-pane/client.js?rev=a69b854bde50` · `GET /plugins/dsh-video-client-pane/client.js` → 200 (4345 B) · `verify-client-bundle.mjs`: factory evaluates, `apply()` contributes one `conversation.view` entry, label thunk + session inject + first render OK | **gate green.** Fallback (d) not needed. Findings in `studio/README.md` |
 | S3 HyperFrames range render + determinism | todo | — | **A2 — architecture gate** |
 | S4 Range media route + scrub | todo | — | A3 |
-| S5 hosted ASR adapter (word timestamps) | todo | — | B2 — **blocked: needs API key (B-1)** |
+| S5 hosted ASR adapter — OpenAI `whisper-1` | todo | — | B2 — provider decided; **blocked only on the key** |
 
 ## Phase A — foundation
 
 | Step | State | Verification | Notes |
 |---|---|---|---|
 | A0 workspace skeleton + `doctor` | **pass** | `pnpm -s typecheck` → exit 0 · `pnpm -s test` → **5/5 pass** (schema round-trip, invalid anchor, duplicate ids, min>max span, bad clip id) · `pnpm -s doctor` → *Hard requirements satisfied* (node 22.19, ffmpeg 7.0.2 + ass/subtitles/overlay/zoompan/sidechaincompress/loudnorm/silencedetect, libx264, VideoToolbox, Chrome 156, 376 system font faces, 154 GB free) | pnpm 11.7.0 + zod 3.24 installed; `esbuild` build script ignored by pnpm (harmless: tsx/vitest both run). Doctor warns on: no project fonts, no ASR key, no real footage, no global `dsh` CLI |
-| A1 spike S2 | todo | — | timebox 1 session → fallback (d) if unsolved |
+| A1 spike S2 | **pass** | see gate row S2; composition verified with `--dump-config` (`# == @deepseek-ai/dsh-web-app, patched by dsh-studio`, webserver port 3099) | 6 gotchas documented (linked-bundle deps, in-box web bundle, `workspace:*` boundary, sourcemap/footer ordering, private `@deepseek-ai/*` types, `dsh web` alias) |
 | A2 spike S3 | todo | — | decides `timebase` + whether motion presets are viable here |
 | A3 media route | todo | — | `206`/`Content-Range`/`416`/traversal tests |
 | A4 spike S1 | todo | — | — |
@@ -30,7 +30,7 @@ Last updated: session 1 — cleanup done, plan written, **A0 pass**.
 | Step | State | Verification | Notes |
 |---|---|---|---|
 | B1 probe/proxy/audio | todo | — | needs a real clip (B-2) |
-| B2 ASR seam + adapter | **blocked** | — | Q15 / B-1 |
+| B2 ASR seam + OpenAI adapter | **blocked** | — | code is unblocked (fixture-tested); live verify needs `OPENAI_API_KEY` |
 | B3 silence map | todo | — | — |
 | B4 face tracks | todo | — | ship `faces-null` if ONNX fights back |
 | B5 resolver + projection | todo | — | golden snapshots + projection property |
@@ -67,7 +67,7 @@ Last updated: session 1 — cleanup done, plan written, **A0 pass**.
 | F1 shell + playback | todo | — | checkpoint H3 |
 | F2 overlay compositing | todo | — | geometry asserted numerically |
 | F3 timeline + notes rail | todo | — | checkpoint H5 |
-| F4 direct manipulation + stills | todo | — | checkpoint H4 |
+| F4 drag experiment (3h timebox) | todo | — | **optional by design** — Q3 deferred; cut it if it does not feel good |
 | F5 lint badges | todo | — | — |
 
 ## Phase G–H — v1.0 tail
@@ -86,6 +86,7 @@ Last updated: session 1 — cleanup done, plan written, **A0 pass**.
 
 | # | When | What to look at |
 |---|---|---|
+| **H0** | **now** | <http://127.0.0.1:3099> — start a chat session, confirm a **Studio** tab appears next to Chat and shows "Studio pane online" with a ticking counter |
 | H1 | after B5 | the resolved overlay geometry JSON for one fixture frame — does the description match the video |
 | H2 | after D1 | one burned caption frame (`studio/.cache/checks/h2.png`) |
 | H3 | after F1 | the pane plays and scrubs |
@@ -97,9 +98,9 @@ Last updated: session 1 — cleanup done, plan written, **A0 pass**.
 
 | # | Need | Blocks | Status |
 |---|---|---|---|
-| B-1 | ASR provider + key (Q15) | B2 and everything downstream of a real transcript | **open** |
-| B-2 | one real clip in `studio/fixtures/incoming/` | B1 onward for real-footage validation | **open** |
+| B-1 | **`OPENAI_API_KEY`** (provider decided: OpenAI; key still needed for B2's live verify) | real transcription | **open** |
+| B-2 | one real clip in `studio/fixtures/incoming/` (spec in that folder's README) | B1 onward for real-footage validation | **open — user will supply, location requested** |
 | B-3 | caption fonts (Q2) | D1 typography | open (lookalikes until then) |
-| B-4 | pane interaction depth (Q3) | F4 scope | open (proceeding drag-only) |
+| B-4 | ~~pane interaction depth (Q3)~~ | — | **resolved: deferred; F4 is a 3h experiment** |
 | B-5 | vision QA consent (Q9) | G4 | open |
 | B-6 | preferred DSH invocation | GUI booting | open (using `pnpm dsh`) |
