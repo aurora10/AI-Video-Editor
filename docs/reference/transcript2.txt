@@ -1,0 +1,596 @@
+
+Replacing My Editor With AI
+I have not touched an editing timeline
+in the last two to three weeks. And for
+full transparency, Claude has edited
+this entire video. So if you see extra
+graphics going on simply because I want
+to showcase what Claude can do, that is
+why. But not every single video needs to
+be like this. And plus, for the last two
+to three weeks, every video on my short
+form page, every video on my YouTube
+channel has been edited by Claude, which
+means I've saved easily 10, 15, maybe
+even 20 hours every single week. Plus,
+it's allowed me to stay consistent a
+whole lot easier. And this is coming
+from someone that used to be a full-time
+video editor, so I know how powerful
+this thing is or how good it really can
+be. Plus, I'm a full-time content
+creator, too. So, like, editing is still
+part of my job. Anyway, in this video,
+I'm going to go through a few things.
+It's going to be the real cost between a
+human editor and Claude editing. It's
+going to be in dollars. So, you guys, I
+work in dollars now because I I've got a
+bunch of American clients. Most of you
+are probably American. If not, it's just
+the currency of the world. Then it's
+going to be a full setup. So everything
+you need to download step by step. You
+should be able to just screenshot the
+list or there's going to be a free AI
+editing skill in the description which
+you can download. And if you put that
+into Clo, it will basically install
+everything for you. Then I'm going to
+show you how you can teach it your
+editing style so it never makes the same
+mistake again. And I'm going to go
+through a live edit. Now this is
+actually my second time recording this
+because my computer crashed because I
+just have no internal storage. So, I had
+The True Cost of Professional Editing
+to make a few adjustments. Anyway, with
+that being said, let's quickly go
+through this. A cheap editor, if you're
+looking for a cheap editor that's in
+like third world countries, it's going
+to be like $5 to $15 for a short form
+video. $5 to $15 for a short form video
+over the cost of a month. That's $150 to
+$450 a month. If you're looking for a
+premium editor or just a good editor on
+the low end, you're getting $30 per
+video. Typically, it's $50 per video. I
+was charging $50 per short form video
+around I think two years ago when I was
+a full-time editor. Then on the top end
+where you want extra motion graphics,
+extra this and that, it's 150 per video.
+So if we look at that for the month,
+that's either 900 a month, 1,500 a
+month, or 4,500
+every single month. If we're going to
+the YouTube side of things, a YouTube
+video typically on the low end 150.
+That's bare minimum. And if we take that
+bare minimum, cuz this could go up to
+500 per video. I've been quoted that
+some people do per minute. If we go on
+the low end and do four videos a month,
+which is once a week like normal, that's
+$600 per month. And you have to go with
+the turnaround time of 3 to 7 days,
+sometimes you have to nudge the editor
+The Essential Tech Stack
+because they have so much work going on.
+Now, if we compare it to Claude, you can
+get the Claude Max plan for $100 a
+month. 11 Labs is what I use to
+transcribe the videos, but you can use I
+think it's called Whisper on Mac. I'm
+not sure what it's called on Windows,
+but there's a free local transcription
+tool that you can use, but 11 Labs is so
+cheap and it's super accurate. I found
+it's just made my edits better. 22 cents
+per hour. Hella cheap. Then you got
+Hyperframes, which does like the
+animations, the text, the graphics, the
+captions, everything. Then FFmpeg.
+By the way, you don't need to know how
+to code. You don't need to know how to
+edit. You just have to set this up once
+and talk to it in plain language because
+I have no idea what that is. I have no
+idea what Node.js is and Python, all of
+that stuff, which you can see it's all
+free. Now, roughly it's going to be like
+$3 per like video. If we do 30 short
+form, four YouTube videos, a $100
+subscription, roughly around $3. Now, I
+did a video about this before. I did 16
+short form videos with Claude on a $100
+plan. It took up 22% of my weekly usage.
+So I did 2 weeks worth of short form for
+22% of my weekly usage. And that resets
+every week. So I could have probably
+done upwards of nearly 100 short form
+videos. And these are different videos,
+not just variations of the same video.
+It would even be cheaper. So if we
+compare it side by side, a human editor,
+30 short form videos at $50. This is me.
+And then you got a YouTube videos, four
+YouTube videos, $150. is you're looking
+at 2,100 every single month. Whereas, if
+we go to Claude, your Claude is only
+$100 if you go for the max plan. I've
+got a client that's on the $20 plan and
+she's fine with that. All 34 videos, you
+just need to record them, you know, come
+up with the ideas, etc. Hand it to
+Claude and it's done. So, 2,100 a month
+versus 100 a month. You're literally
+saving 2,000 every single month. And
+let's not even think about the time. You
+don't have to sit there and edit the
+videos. In case you're thinking, I don't
+pay an editor. I edit myself. It takes
+me hours, right? Or even just the time
+it takes for the editor to do the edit.
+3 to seven days. Typically, they'll say
+3 to four, maybe, sometimes 48 hours,
+but sometimes you pay a premium to get
+the video back faster. Then you have to
+give them notes and revisions, and then
+you have to wait for that again. Whereas
+Claude would deliver that in the
+same day. Guys, it's insane. You can
+record a video now and post it. Now,
+I've said this is my second time
+recording it. So, in the first one, I
+actually recorded the video, which I
+will show you guys the video, and I'm
+A Live Demonstration
+going to give it to Claude, give it the
+same prompt, and I'm going to leave it
+to edit, and you guys are going to see
+the result of that. Now, here's exactly
+how it works in a nutshell. I have the
+raw recording. I'm going to give it to
+Claude. Claude already has my skills, my
+templates, etc. And it's basically going
+to run every tool. I'm going to give it
+a simple prompt. It's going to
+transcribe. It's going to cut. It's
+going to do the captions and the text,
+any B-roll if like necessary depending
+on my templates, any animations, etc.
+Sound effects, music, and then it will
+render a 720p version so I can leave
+notes inside a editing review app. So
+then it can then make those changes and
+then do the final export at 1080p for me
+because it's just a lot faster than 4K.
+And then you have the finished video
+ready to post, which I will have it
+upload to Google Drive or it will just
+be on my like desktop and I airdrop that
+back to my phone to just post it. Here's
+everything that you need. You can
+screenshot this. Hopefully, you can just
+screenshot this, give it to Claude and
+Claude will install everything. So,
+first, you can't screenshot this part.
+You actually have to do it yourself.
+Download the Claude desktop app. And
+what a mis the mistake a lot of people
+make is they think they can use the web
+wrong or when they download it they
+don't actually use clawed code they use
+the clawed co-work/ chat section that is
+not going to work for editing videos
+then second you need to install homebrew
+this allows your Mac to basically
+install everything else afterwards on
+Windows it will basically be an
+alternative or it will basically tell
+you to paste like commands into your
+terminal to basically install all of
+these things I've done this for a client
+so I know that it works. It's just
+slightly different on Windows. I'm not a
+Windows user on Mac and that being said,
+I'm actually due to upgrade my Mac. So,
+your editing style essentially when you
+come up with an editing style, it will
+create you should tell it to create a
+skill. And when it creates a skill, it
+basically has a list of rules and
+guidelines that it's going to follow
+every single time. So, you can see cut
+every pause, every fail take, caption,
+one line just under my chin. These are
+things that I would say to it. music 25
+dibels under my voice. And obviously
+because I'm an editor, I would kind of
+know already like how many decibels on
+average I would put my music under my
+voice just to make it better. Like just
+so it's not too loud but also not too
+quiet. Text never covers my face. You
+know, simple commands like this. And if
+you don't do this, like sometimes the
+edits can just come out a bit messy,
+which is why I say it's not as easy as
+just saying edit my video. So Claude
+does the edit following the skill. You
+will leave notes based on your editing
+review app at that exact second. Claude
+will fix it. It renders the new version
+and then you can say save this to the
+skill. I always say save it to the skill
+just to make sure that it saves it to
+the skill and it never messes up again.
+Mastering Your Editing Style
+So here are my editing templates. I'm
+also going to put the testimonials of
+what people say about the editing
+templates on screen. Obviously Claude's
+editing this video, so it's up to Claude
+if he's going to put it on my left, my
+right, or do a full screen animation cuz
+there's actually a bunch of testimonials
+and they are actually amazing. People
+are saving 10 to 15 hours every week.
+The styles that people are coming up
+with with the Claude editing is amazing.
+They didn't expect it to be so good.
+They just say it's just fire. Like it's
+gamechanging stuff, guys. I've spent the
+last 2 3 weeks creating 20 plus
+templates and there's actually more on
+the way. So, if you get this template
+pack before the door closes, you'll get
+the new templates as well when they're
+available. So, you've got business
+reels, you got personal reels, explainer
+reels, and what I really like is
+coaching core clips and YouTube clips
+simply because you can take your YouTube
+videos and Claude will clip them, find
+the best part, and then do the captions,
+the graphics, everything that you need.
+You got the split screen reel, you know,
+where you're at the top and then your
+graphics are at the bottom or screen
+recordings at the bottom. You got B-roll
+and stack text. This is where you it
+will go through your B-roll library. use
+B-roll and then stack the text just like
+you see fitted captions. You got image
+cluster. Like there's just so much.
+There's going to be a link in the
+description to check all of that out.
+And there's examples on there. There's a
+full website giving you more
+information. And of course, there's 30
+new templates on the way as well. As I
+said, if you get this before it closes,
+you'll get the new templates, too. If
+you are too late, the link will take you
+to a wait list. So, when we reopen,
+there's probably going to be even more
+new templates and you can grab it there.
+With that being said, though, let's
+actually go into the live edit. So, I
+already airdrop the video onto my
+computer. I'm going to show you guys
+what it looks like real quick. So, you
+can obviously see that there's mistakes.
+It's not perfect, and what Claude will
+do to it. You can see it's 4 minutes
+long. I fired my editor and I replaced
+him with Claude.
+I don't think I was happy with that. I
+fired my editor. [clears throat] Yep.
+You see a lot of throat clearing looking
+around silent video was edited. So now I
+can focus on diff now I can put that
+time into different things like
+servicing more clients or just spending
+time with family doing this and having
+Claude as my video editor has allowed me
+to post at least five trial reels every
+single day easily. Am I doing this and
+having claw see I'm whispering to myself
+I'm unsure etc etc. So what happens
+you're going to open claude you're going
+to be greeted with this screen. A lot of
+people make the mistake of using clawed
+chat/cowwork cuz it's in one. Now, what
+you need to do, head over to the top
+left and go to code. Make sure you got
+the desktop version. Go to code. Then
+all you need to do is for the very
+basics, open a new tab, a new session,
+and you are going to drag the video. By
+the way, you can do this in batches.
+Like in the previous video, you can go
+check it out. I did like I think I did
+eight at once and the other eight I did
+off camera because obviously like what
+the heck. Anyway, you drag the file
+here. I will then paste in my prompt. I
+normally speak my prompt using Whisper
+Flow, but because I said this is the
+second time doing the video, I already
+had the prompt and I just want to time
+it to see how long it actually takes. I
+use Opus High right now simply because
+I've switched from the $100 plan to $200
+plan. Not because I was running out of
+credits, but because I was doing a bunch
+of templates and I was like, cuz I'm
+doing these templates and doing extra
+things and trying to build extra things,
+I'm actually running low. So, I've
+switched and in fact I've got nowhere
+near the limit. So, I'm literally 50% of
+my weekly limit, which is absolutely
+insane. So, you can see I'm at 47%. This
+session's on zero. So, you're going to
+see how much credit and usage it
+actually takes up, etc. You can see the
+prompt right here. I would say edit this
+video. Clearly, I started too too soon.
+Edit this video using my personal real
+style. I want the captions. And of
+course, it will just use it will take my
+prompt find the relevant skills. I could
+also just type the slash command and
+type in personal and you will see a
+personal short form and then go from
+there. With that being said, I'm going
+to submit this. Then I'll be back when
+it's done. So right now it's 12:49.
+Let's just say 1250 and we'll see how
+long. So that took about 30 minutes. I
+was actually just doom scrolling on my
+phone went on to YouTube watching a
+YouTube video and it is now done. It
+basically tells me everything that it's
+done. But me, I just open this here.
+Reviewing and Refining the Results
+Opens in the browser plane. This is like
+my editing review app almost like
+frame.io. So, let's watch. Let's have a
+listen. Fired my editor and I replaced
+him with Claude. And now Claude has gone
+on to edit this video, this video, this
+video, this video, and a bunch of other
+videos. And okay, so one thing that I
+would potentially change is I was
+pointing here, but it didn't put it
+where my finger was pointing. But it's
+not terrible. In some cases, people do
+do this. So, let's say I wanted to
+genuinely change that. I would just come
+here, come over to the notes section,
+and I would be like the B-roll, and I
+would use Whisper Flow. So, for each
+B-roll video that you've put on to
+showcase my templates that you've
+edited, each one should go where my
+finger is. So, they need to be smaller.
+And where my finger is pointing, they
+should go where the finger is. You can
+keep how they're slightly rotated, but
+yeah, they should go where my finger is
+above my head. It's It's fine if they're
+slightly touching the top of my head.
+just don't make them directly cover my
+face like eyes for example. So I would
+do that. Press save note and I'll
+continue watching the video video. This
+video this video and a bunch of other
+videos. I like this animation here. One
+thing I would do I don't like captions
+when I've got full screen animations. So
+I would come here and I would say
+when you've done full screen animations
+like this, don't add any captions to it.
+Then you just press save note videos.
+And over the last few weeks, I've been
+training Claude to edit in multiple
+different editing styles and also
+content formats that work really well on
+social media. And by doing this and
+having Claude as my video editor has
+allowed me to post at least five trial
+reels every single day easily. And of
+course, it saves me 10 hours every
+single So I don't like the pacing here
+in terms of trial reels, but then the
+trial reels disappeared straight away.
+But that's just me being nitpicky in my
+opinion. And of course, this saves me 10
+hours every single week. So now I can
+put that time into different things like
+servicing more clients or just spending
+time with family. Claude has literally
+changed video editing and content
+creation forever. And the easiest way to
+see all so here the text doesn't stay on
+screen for long enough. So when you're
+stacking the captions, the big font that
+is Ivy Presto doesn't stay on screen for
+long enough. So make sure that there's a
+little hang. So, even if the word has to
+come a little bit earlier so it can stay
+on screen just for a little bit longer
+so the viewer can actually read it, do
+that. Make sure you do that for the rest
+of the captions too, whatever. And the
+easiest way to see all of this is I'm no
+longer the editor. I'm more so the
+director where I give the template and I
+give reviews on edits if there's any
+reviews to make. And of course, this
+whole entire video was edited by Claude,
+too. So, you can see how well or how bad
+Claude is at editing. By the way, if you
+want access to the 20 claude editing
+templates that I've created and a bunch
+of people have been using and loving,
+comment templates and I'll send you the
+link to it now. So, here I'm going to
+change this graphic cuz I don't know why
+I use this one. Change the graphic that
+you used here for my editing templates.
+You can make this a full screen
+animation showcasing the 20 original and
+then the 30 new templates which are
+coming soon. Comet templates using and
+loving comment templates and I'll send
+you the link to it now. Doors close
+soon. So, if you don't get there in
+time, you won't be able to purchase it,
+but you'll be able to join the wait list
+for when we open next. And also, when I
+say people have been loving it, use the
+highlighted testimonials that we've got.
+Yeah, that is pretty much everything. If
+I really wanted to, I could say, okay,
+the text up here is a bit too high. Move
+this a bit lower. And that means you'll
+move the by the way, that editor was me
+laughing emoji a bit lower, too. So, I
+basically just go through, do that. Make
+sure it's all good. The zooms are there.
+That's perfect. 10 hours. Yep, that's
+cool. I'm fine with that. I'm fine with
+that. One thing that I want to do to
+just showcase that Claude is super sick
+is right here where you say I'm talking
+about edited by Claude. I want you to
+put a Clawude interface behind me. So,
+cut me out from the background. Put a
+Claw interface behind me. Make it
+animate in just like the Depth UI
+editing template would. Now, I'm just
+showing you guys how capable it is. Now,
+I've just got seven notes. the music was
+the right level, different editing
+styles, and also content formats that
+work really well on social media. And by
+doing this and having Claude as my video
+editor has allowed me to post at least
+five trial reels every single day
+easily. And of course, it saves me 10
+hours every I mean, I could make it a
+bit louder. Increase the music
+instrumental by two dibels. And that's
+just me. Then I'll basically just press
+I could push send notes to Claude if I
+want it to do the you know the notes or
+I could approve and render the final. So
+I would go to send notes to Claude. I
+can either copy it here by pressing
+command A select all then copy or I
+could just press send notes and Claude
+is listening. So it should Yep. Running
+command. Boom. It's woke. It's read
+listener. And you guys can see it took
+2% of my session usage. Not even. I
+think it took 1% of my weekly usage. So,
+it's it's taken some percentage, but
+it's super fine. Honestly, that edit
+could have just went out. So, I don't
+think it's that bad. I'll come back with
+the final version, and you guys can see
+how well they actually made the
+corrections. Okay, guys. And that's
+literally going to be the final version.
+I already decided I'm not going to go
+back and forth. Man United kickoff in
+about 15 minutes, so I'm going to go
+watch that. But this is literally I'm
+pretty sure it's done a good job. I
+haven't watched it. It's going to be the
+first time. Let's go. Fired my editor
+and I replaced him with Claude. And now
+Claude has gone on to edit this video,
+this video, this video, this video, and
+a bunch of other videos. And over the It
+literally did exactly what I pointed is
+put it there. Full screen animation with
+no text. Yeah, there we go. Because
+there's just other pieces of text there.
+I didn't want to get it like all
+confused and bunch of other videos. And
+over the last few weeks, I've been
+training Claude to edit in multiple
+different editing styles and also
+content formats that work really well on
+social media. And by doing this and
+having Claude as my video editor has
+allowed me to post at least five trial
+reels every single day easily. And of
+course, this saves me 10 hours every
+single week. So now I can put that time
+into different things like servicing
+more clients or just spending time with
+family. Claude has literally changed
+video editing and content creation
+forever. And the easiest way to see all
+of this is I'm no longer the editor. I'm
+more so the director where I give the
+template and I give reviews under edits
+if there's any reviews to make. And of
+course, this whole entire video was
+Yep. It's gone behind me edited by
+Claude 2 so you can see how well or how
+bad Claude is at editing. By the way, if
+you want access to the 20 Claude editing
+templates that I've created and a bunch
+of people have been using and loving,
+comment templates and I'll send you the
+link to it. Now, I would only say this
+probably went a bit too fast. I would
+say just keep it on screen, but I'm not
+going to. Doors close soon. So, if you
+don't get there in time, you won't be
+able to purchase it, but you'll be able
+to join the wait list for when we open
+next.
+Yeah, I'm going to press approve and
+final render. And that's literally it,
+guys. Now, you might be like, "That's a
+lot of work for just one video, dude."
+What would happen is you would upload a
+batch of videos. You know what style you
+want because you probably created it or
+you've mixed a bunch of styles together
+and you would it would basically create
+those videos in parallel. So, it will do
+agent sub agents to cut all seven
+videos. You do a sub agent to get the
+graphics, sub agent for the caption, sub
+aents for all of that. And yes, it will
+take a bit longer. It's not going to be
+30 minutes for all seven videos. It
+might be like two and a half or 3 hours
+for seven videos. I don't know.
+Like, we're not going to sit here and
+watch it. That's not the point. The
+point is to set it so you can go off and
+do something else, do other work, go to
+the gym, etc. You set it, you come back,
+you just give it a bunch of changes. if
+there's any changes and then you upload
+it. Like that's literally it. Anyway,
+I'm going to approve the final render
+here and I will see you guys in the next
+video. If you want the pack, there's a
+link in the description. If you want the
+free AI editing skill and the setup so
+you can just put the file in and do your
+own thing, there's a link for that, too.
+Catch you in the next video. Peace.

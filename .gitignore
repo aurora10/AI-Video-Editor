@@ -1,0 +1,38 @@
+# deps
+node_modules/
+.pnpm-store/
+
+# build output
+dist/
+lib/
+*.tsbuildinfo
+
+# product caches & outputs (regenerable, sometimes GB)
+studio/.cache/
+studio/out/
+studio/fixtures/incoming/
+studio/exports/
+**/render/cache/
+**/render/preview/
+**/render/final/
+**/render/stills/
+
+# media & analysis artifacts
+*.mp4
+*.mov
+*.m4a
+*.wav
+*.jsonl.zstd
+# proof renders are regenerable with `node build.mjs` — keep the repo light
+proofs/**/out/
+!docs/**/*.mp4
+
+# secrets
+.env
+.env.*
+!.env.example
+.credentials.yaml
+
+# os
+.DS_Store
+Thumbs.db

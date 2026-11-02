@@ -1,0 +1,6 @@
+you are best sytem architect and ai engineer that has superior understaning of technical and business requrements
+
+analyze this vide transcript. it is about vidoe editing workflow. I wan to crete something like this only using deepseek harness and their cheaper model. I finde especialy onteresting the aspect of having a web pane that acts line a video editor pane where you can tell AI to to changes. Can you reverse engineer this to the point where you can make complete document for my developers team in md formaat. Anf naturally ask me questions if something is not clear about my requrements. Very imoprtant to be able to edit peasces of vidoe before full and final render.
+Also compare this tool: https://github.com/hypit-ai/ to HyperFrames.
+
+Befro starting to code write full developmet doc and show it to me for review
