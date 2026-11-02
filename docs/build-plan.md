@@ -92,8 +92,17 @@ proofs/             measured evidence, kept
 - **Files:** `proofs/hyperframes/{comp.html,render-range.mjs,README.md}`.
 - **Method:** one composition, 3 timed clips + one GSAP-animated caption group; render `[0,3s)` then `[6,9s)`; render the same range twice.
 - **Verify:** (1) frame at window start matches the frame at the same absolute time of a full render (SSIM ≥0.99, or identical hash); (2) two runs of the same range are byte-identical (hash) or SSIM ≥0.999 with a documented reason; (3) throughput measured in output-seconds/minute and committed to the ledger.
-- **Decision downstream:** if absolute-timebase ranges work → `timebase:'absolute'` (preferred). If they re-base → `timebase:'segment'` (per-segment composition). If throughput <0.3× realtime → motion presets get redesigned around T0 for this machine, and preview drops to 360p.
+- **RESULT (pass):** absolute-time ranges **confirmed** (SSIM 0.99989 vs 0.880 control), two runs **byte-identical**. `timebase:'absolute'` chosen — no per-segment re-basing.
+- **Throughput (measured, 2 workers):** fixed overhead **≈13.6 s per Chromium render**, marginal **3.2 s per output second** at 540×960 and **5.9 s** at 1080×1920. A 60 s 1080p delivery render ≈ **6 min**.
+- **Consequences now binding:** (a) T1 segments are batched into contiguous dirty runs and are coarse (≥8–12 s) — per-segment *Chromium* caching is an anti-pattern here; (b) T0 stays the default tier and is ~3.5× faster with no fixed cost; (c) NFR-04 relaxed to ≤8 min. Details: [`../proofs/hyperframes/README.md`](../proofs/hyperframes/README.md).
+- **New follow-up S3b (not a gate):** can the browser/encoder be kept warm across renders (producer server, or one composition covering several dirty runs)? If it removes most of the 13.6 s, small T1 edits get ~4× cheaper. Worth half a session before D2.
 - **Effort:** 1–2 h.
+
+### A2b — **S3b (follow-up, not a gate): amortise the 13.6 s**
+- **Question:** can one invocation render several disjoint dirty runs, or can the browser stay warm between runs?
+- **Method:** three 3 s runs in one process vs three separate `hyperframes render` calls; then try `--workers 1` (less launch churn) and a single concatenated composition with gaps.
+- **Verify:** wall time for 3×3 s disjoint runs; target ≤ 1.5× a single 3 s run instead of 3×.
+- **Effort:** ≤2 h. If it fails, accept coarse T1 batching and move on — it is a performance nicety, not a correctness gate.
 
 ### A3 — Range media route
 - **Goal:** `<video>` can scrub local files through our own host route.

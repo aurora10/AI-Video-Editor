@@ -251,4 +251,12 @@ The 3.37× is the *pessimistic* case: 4 segments over 24s means one note dirties
 
 **Did I reverse-engineer it?** Yes: the loop, the prompt, the skill *rules* (12 of them, with the check each implies), the template taxonomy, the review-app contract, the run order and the economics are reconstructed above with line-level evidence. The honest limit is §9 — 17 things the video cannot tell us, four of which (GAP-1, GAP-4, GAP-6, GAP-14) would change the design if guessed wrong.
 
-**Can it be built?** The loop has already been built by him, so existence is proven in the Claude ecosystem. The question is whether it can be built *on DSH with a cheap model*, which is an engineering question about three things: the client-plugin contract (spike S2), cheap-model reliability against a digest-based tool surface, and render throughput on the target machine. The measurement above closes the third one for the T0 path.
+**Can it be built?** The loop has already been built by him, so existence is proven in the Claude ecosystem. The question is whether it can be built *on DSH with a cheap model*, which is an engineering question about three things, and all three now have answers:
+
+| Question | Answer |
+|---|---|
+| Can an out-of-tree pane take a real seat in the harness UI? | **Yes** — gate S2: the Studio tab registers, mounts and renders (`docs/build-state.md`) |
+| Can a *piece* of the timeline be re-rendered without the whole video? | **Yes, two ways** — T0 segments: 14.2 s → 4.2 s (3.4×); Chromium windows render on absolute time (SSIM 0.9999, deterministic) |
+| Is the cheap model constrained enough to drive it? | **Open** — the digest-based tool surface is designed for it; the flash-model conformance harness (E3) is the test, and it has not run yet |
+
+The one thing the measurements changed: Chromium rendering costs **≈13.6 s of fixed overhead per invocation** on this machine, so graphic work is batched into contiguous runs rather than split into many small segments — while caption/layout work stays on the FFmpeg path, which has no fixed cost and runs ~3.5× faster.

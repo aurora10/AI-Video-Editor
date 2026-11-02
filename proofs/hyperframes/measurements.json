@@ -1,0 +1,27 @@
+[
+  {
+    "label": "1 s window @540x960",
+    "wallMs": 16789,
+    "outputSeconds": 1
+  },
+  {
+    "label": "3 s window @540x960",
+    "wallMs": 23191,
+    "outputSeconds": 3
+  },
+  {
+    "label": "3 s window @540x960, PRODUCER_EXPERIMENTAL_FAST_CAPTURE=1",
+    "wallMs": 27035,
+    "outputSeconds": 3
+  },
+  {
+    "label": "3 s window @1080x1920",
+    "wallMs": 31320,
+    "outputSeconds": 3
+  },
+  {
+    "label": "12 s full @540x960",
+    "wallMs": 69533,
+    "outputSeconds": 12
+  }
+]

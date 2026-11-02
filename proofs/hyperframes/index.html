@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      html, body { margin: 0; padding: 0; background: #000; }
+      #stage { position: relative; overflow: hidden; background: #0b0f19; }
+      .band { position: absolute; left: 0; width: 100%; height: 40px; opacity: 0.9; }
+      #a { top: 120px;  background: #ff3b6b; }
+      #b { top: 620px;  background: #22d3ee; }
+      #c { top: 1000px; background: #a3e635; }
+      #box {
+        position: absolute; top: 1800px; left: 60px; width: 220px; height: 220px;
+        background: #f59e0b; border-radius: 28px;
+      }
+      #ring {
+        position: absolute; top: 760px; left: 160px; width: 300px; height: 300px;
+        border: 18px solid #e879f9; border-radius: 50%;
+      }
+    </style>
+  </head>
+  <body>
+    <!--
+      Deterministic spike composition for gate S3.
+      Every pixel-changing property is driven by ONE paused GSAP timeline that the
+      renderer seeks per frame, so pixel state is a pure function of the frame index.
+      No Date.now, no Math.random, no rAF, no network fetches at render time.
+    -->
+    <div
+      id="stage"
+      data-composition-id="s3"
+      data-start="0"
+      data-duration="12"
+      data-width="540"
+      data-height="960"
+      data-fps="30"
+    >
+      <div id="a" class="band clip" data-start="0" data-duration="12" data-track-index="0"></div>
+      <div id="b" class="band clip" data-start="0" data-duration="12" data-track-index="1"></div>
+      <div id="c" class="band clip" data-start="0" data-duration="12" data-track-index="2"></div>
+      <div id="ring" class="clip" data-start="0" data-duration="12" data-track-index="3"></div>
+      <div id="box" class="clip" data-start="0" data-duration="12" data-track-index="4"></div>
+    </div>
+
+    <script src="./gsap.min.js"></script>
+    <script>
+      const tl = gsap.timeline({ paused: true })
+      // 12 seconds, 30 fps => 360 frames. Every tween is a pure function of time.
+      tl.fromTo('#box', { y: 0, rotation: 0 }, { y: -1500, rotation: 720, duration: 12, ease: 'none' }, 0)
+      tl.fromTo('#ring', { x: 0, scale: 1 }, { x: 220, scale: 2.2, duration: 12, ease: 'power1.inOut' }, 0)
+      tl.fromTo('#a', { xPercent: -100 }, { xPercent: 100, duration: 12, ease: 'none' }, 0)
+      tl.fromTo('#b', { xPercent: 100 }, { xPercent: -100, duration: 12, ease: 'none' }, 0)
+      tl.fromTo('#c', { opacity: 1 }, { opacity: 0.15, duration: 12, ease: 'none' }, 0)
+      window.__timelines = window.__timelines || {}
+      window.__timelines['s3'] = tl
+    </script>
+  </body>
+</html>

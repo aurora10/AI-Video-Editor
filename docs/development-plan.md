@@ -249,8 +249,8 @@ Priority: **M** = must (v1), **S** = should (v1.5), **C** = could (v2). Grouped 
 |---|---|---|
 | NFR-01 | Note-round latency (5 notes on a 60s short) | ≤ 60s wall clock, p90 |
 | NFR-02 | Scrub responsiveness in the pane | ≥ 50 fps overlay compositing; ≤ 120 ms seek latency on the 270p proxy |
-| NFR-03 | Full 60s preview render (540p, from scratch) | ≤ 3 min on Apple Silicon; **≤ 6 min on the current dev machine** (Intel i7-3720QM, 8 threads, 8 GB — see NFR-13) |
-| NFR-04 | Full 60s final render (1080p) | ≤ 5 min; concat-only when everything is cached. **Measured baseline: 14.2 s for 24 s of 9:16 1080p on the T0 path on this machine (≈0.6× realtime), 0.44 s to reassemble 4 cached segments** |
+| NFR-03 | Full 60s preview render (540p, from scratch) | **Measured basis:** T0 ≈ 0.6× realtime (36 s); T1 ≈ 0.13–0.17× realtime + 13.6 s fixed → a 60 s Chromium-only preview is ≈ 5–7 min at 2 workers. Target: **≤2 min for T0-dominant projects, ≤7 min for T1-heavy ones** on the dev machine |
+| NFR-04 | Full 60s final render (1080p) | **≤ 8 min** (revised from 5 after measuring 5.9 s of wall time per output second at 1080p on the T1 path). T0 path: 14.2 s for 24 s of 1080×1920 (**0.59× realtime**), 0.44 s to reassemble 4 cached segments — concat-only when everything is cached |
 | NFR-05 | Single-frame render latency (direct-manipulation verify) | ≤ 2s |
 | NFR-06 | Determinism | Byte-identical for identical inputs on the same machine + pinned Chromium |
 | NFR-13 | **Render throughput floor (the machine we have today)** | 1080p 9:16 T0 encodes at ≥0.5× realtime; **≤ 2 Chromium workers** (8 GB RAM); the product must hit NFR-01 on T0-only projects, and Chromium-heavy projects must degrade by rendering preview at 540p rather than by failing |
@@ -441,6 +441,26 @@ Choosing the cheapest renderer that can produce a segment is the largest single 
 | **T2** | Pre-baked assets (AI stills, generated B-roll, rendered lower-third PNG sequences) | Anything expensive that does not change per revision | Offline, once, cached by prompt+seed |
 
 A preset declares its floor (`requires: 'ffmpeg' | 'chromium'`), and the segment compiler picks `max(tier of every op in the segment)`. Because a typical talking-head short is caption-heavy, **most of its segments should land in T0**, which is what makes the 60-second note round realistic.
+
+#### 5.5.1b Measured renderer economics (gate S3, on the dev machine)
+
+| Tier | Fixed cost per invocation | Marginal cost | 60 s render |
+|---|---|---|---|
+| **T0** FFmpeg/libass | ~0 s | ≈1.7 s per output second (1080×1920) | ≈100 s |
+| **T1** Chromium/HTML | **≈13.6 s** | 3.2 s/s @540p · 5.9 s/s @1080p | 200 s (540p) – 370 s (1080p) |
+
+Two design rules follow, and they are binding rather than advisory:
+
+1. **Batch T1.** Because the fixed cost is paid per `hyperframes render` invocation, splitting a
+   dirty region into many small Chromium segments multiplies cost. Contiguous dirty intervals are
+   merged and rendered as one run; T1 segment granularity is coarse (≥8–12 s). The per-segment
+   content-addressed cache remains exact for **T0**, where there is no fixed cost.
+2. **T0 by default.** Every overlay that a preset can express as filters + libass stays in T0.
+   Chromium is for motion-graphics bursts (word-pop typography, rotated clusters, full-screen
+   animations), which is a minority of segments in a talking-head short.
+
+Working-set numbers for a 60 s 9:16 short at preview quality: **T0-dominant ≈ 40–90 s**,
+**T1-heavy ≈ 4–6 min**, incremental note round (1–2 dirty intervals, cached neighbours) ≈ **5–30 s**.
 
 #### 5.5.2 The segment cache
 

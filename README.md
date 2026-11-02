@@ -12,7 +12,7 @@ Reverse-engineered from a working Claude-based workflow (see `docs/reference/tra
 
 | | |
 |---|---|
-| Phase | **Building.** Two architecture gates (S2, S3) must clear before product code. Live ledger: [`docs/build-state.md`](./docs/build-state.md) |
+| Phase | **Building.** Both architecture gates are closed (**S2**: the pane mounts in the harness UI · **S3**: window rendering is absolute-time and deterministic). Live ledger: [`docs/build-state.md`](./docs/build-state.md) |
 | Target | Single-operator, local (DSH `web` profile), out-of-tree plugin bundle · `deepseek-v4-flash` for bulk work · preview at 540p, delivery at 1080p |
 | Hardware baseline | Intel i7-3720QM · 8 GB · FFmpeg 7.0.2 · Chrome 156 → T0-first, ≤2 Chromium workers |
 
@@ -28,6 +28,15 @@ Reverse-engineered from a working Claude-based workflow (see `docs/reference/tra
 | [`docs/reference/`](./docs/reference/) | Original brief and the video transcript |
 
 ## Proofs (measured, kept)
+
+`proofs/hyperframes/` — gate S3: does a *window* of a composition render as the same frames it would
+have had in the full render?
+
+```
+window(6-9 s) vs full[6-9 s]   → mean SSIM 0.999892   (control vs full[0-3 s]: 0.880)
+two identical window renders   → 90/90 decoded frames byte-identical
+throughput                     → ~13.6 s fixed per render + 3.2 s per output second @540p
+```
 
 `proofs/segment-cache/` — a runnable demonstration of the core claim:
 

@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "historyId": "f29cd8f0-b04a-47da-aa14-3bfe04b9d738",
+  "currentRevision": "c01c8f1f-e1ef-4426-9ab3-02f7e54ab746",
+  "pendingChanges": false,
+  "files": {
+    "gsap.min.js": {
+      "hash": "92bb9a96476f983d212a2bc4f54c889039c1696dd4461d40a736860938570fbb",
+      "content": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/92/92bb9a96476f983d212a2bc4f54c889039c1696dd4461d40a736860938570fbb"
+    },
+    "index.html": {
+      "hash": "22d032a2b82da8ad9a3a823cb0576b3650d9be198c6bf052b499b8cc82ba68fb",
+      "content": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/22/22d032a2b82da8ad9a3a823cb0576b3650d9be198c6bf052b499b8cc82ba68fb"
+    },
+    "index-1080.html": {
+      "hash": "5753a121ad23b8512eedb69ca87ec020599169102ee403ee4c39f3f9600cc1bc",
+      "content": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/57/5753a121ad23b8512eedb69ca87ec020599169102ee403ee4c39f3f9600cc1bc"
+    },
+    "ssim.log": {
+      "hash": "8a69f92fbbadbd289001d0b4bec6b87e4c2878adf98f77c26feda5ca75d9877b",
+      "content": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/8a/8a69f92fbbadbd289001d0b4bec6b87e4c2878adf98f77c26feda5ca75d9877b"
+    },
+    "w1.md5": {
+      "hash": "30669719823d426da23358c2729b87e53c85541e6d0349fd5b3a61134f2db384",
+      "content": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/30/30669719823d426da23358c2729b87e53c85541e6d0349fd5b3a61134f2db384"
+    },
+    "w2.md5": {
+      "hash": "30669719823d426da23358c2729b87e53c85541e6d0349fd5b3a61134f2db384",
+      "content": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/30/30669719823d426da23358c2729b87e53c85541e6d0349fd5b3a61134f2db384"
+    }
+  },
+  "revisions": {
+    "c01c8f1f-e1ef-4426-9ab3-02f7e54ab746": {
+      "actor": {
+        "kind": "outside",
+        "name": "Outside"
+      },
+      "label": "Changed outside the app",
+      "startedAt": 1793636272157,
+      "endedAt": 1793636272197,
+      "files": {
+        "index-1080.html": {
+          "before": null,
+          "after": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/57/5753a121ad23b8512eedb69ca87ec020599169102ee403ee4c39f3f9600cc1bc"
+        },
+        "ssim.log": {
+          "before": null,
+          "after": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/8a/8a69f92fbbadbd289001d0b4bec6b87e4c2878adf98f77c26feda5ca75d9877b"
+        },
+        "w1.md5": {
+          "before": null,
+          "after": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/30/30669719823d426da23358c2729b87e53c85541e6d0349fd5b3a61134f2db384"
+        },
+        "w2.md5": {
+          "before": null,
+          "after": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/.cache/hfhome/.cache/hyperframes/history/f29cd8f0-b04a-47da-aa14-3bfe04b9d738/blobs/30/30669719823d426da23358c2729b87e53c85541e6d0349fd5b3a61134f2db384"
+        }
+      }
+    }
+  },
+  "checks": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  },
+  "snapshots": {
+    "latest": null,
+    "revisions": {},
+    "unversioned": []
+  }
+}
