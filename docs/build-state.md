@@ -2,7 +2,7 @@
 
 One row per step. **A step is `pass` only when the verification command's output is pasted here.** States: `todo · wip · pass · fail · blocked · cut`.
 
-Last updated: session 5 — **B2 live ✓** (720 words in 37 s, $0.048). Footage turns out to be **Russian**, which changed the caption rules. Preview proxy still rendering (~9.9 MB so far).
+Last updated: session 6 — **first end-to-end cut rendered and verified.** Proxies done (preview 1963.7 s, scrub 13.8 s), captions burned, output at `studio/out/test-vid-option2.mp4`.
 
 ## Gates
 
@@ -31,7 +31,7 @@ Last updated: session 5 — **B2 live ✓** (720 words in 37 s, $0.048). Footage
 
 | Step | State | Verification | Notes |
 |---|---|---|---|
-| B1 probe/proxy/audio | **wip** | probe: 3840×2160@60.04 (VFR flag: no) · hevc · 2.71 GB · 480.0 s · aac 2ch/48 kHz — 0.4 s · fingerprint (head+tail+size) 0.0 s · **audio ✓** 48 kHz stereo 92.2 MB + 16 kHz mono **15.4 MB** (under the 25 MB ASR limit), 480.02 s · preview + scrub rendering | **Ingest was reordered by measurement** — see findings. Two self-inflicted bugs fixed: `.part` suffix broke ffmpeg's muxer inference; a killed encode left a file that looked complete (now atomic rename + per-step cache) |
+| B1 probe/proxy/audio | **pass** | probe: 3840×2160@60.04 (VFR flag: no) · hevc · 2.71 GB · 480.0 s · aac 2ch/48 kHz — 0.4 s · fingerprint (head+tail+size) 0.0 s · **audio ✓** 48 kHz stereo 92.2 MB + 16 kHz mono **15.4 MB** (under the 25 MB ASR limit), 480.02 s · preview + scrub rendering | Final timings on the real clip: **preview 540p 1963.7 s (32.7 min), scrub 270p 13.8 s, audio ~8 s**, total 1979 s. Artifacts: scrub 67.6 MB · preview 80.9 MB · audio 87.9 MB + 14.6 MB. **Ingest was reordered by measurement**; two self-inflicted bugs fixed: `.part` suffix broke ffmpeg's muxer inference; a killed encode left a file that looked complete (now atomic rename + per-step cache) |
 | B2 ASR seam + OpenAI adapter | **pass** | `packages/host-ingest/src/asr/openai.ts` + 8 tests green: refuses non-`whisper-*` models (no word timestamps), maps verbose_json → validated `Transcript` with stable `w-####` ids, sends both `timestamp_granularities[]`, retries 5xx but not 4xx, computes cost, fails loudly on zero words; `parseSilencedetect` covered too | **13/13 tests pass.** **Live:** 14.6 MB upload → **36.9 s**, **720 words / 96 segments**, 1 request, **$0.048**, language auto-detected **russian**, speech 14.4 s → 480.0 s, cached to `analysis/transcript.src-01.json` |
 | B3 silence map | **pass** | `detectSilence` on the real 8-min audio: **136 regions, 123.9 s of silence (25.8 % of the file)**, longest pauses 3.8–6.0 s, 180 regions under 400 ms; detected in **1.07 s** (vs ~35 min to decode the video) | This is the deterministic basis for "cut every pause" |
 | B4 face tracks | todo | — | ship `faces-null` if ONNX fights back |
@@ -83,6 +83,24 @@ Last updated: session 5 — **B2 live ✓** (720 words in 37 s, $0.048). Footage
 | H1 derivations + reframe | todo | — | — |
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
+
+## First real cut (session 6)
+
+`pnpm render-clip test-vid --from 4:47 --to 5:47 --label option2` → `studio/out/test-vid-option2.mp4`
+
+| check | result |
+|---|---|
+| container | 960×540 H.264 + AAC **48 kHz** stereo · **55.30 s** · 6.9 MB · rendered in **27 s** |
+| loudness | **−14.2 LUFS** integrated, peak **−2.5 dBFS** |
+| pauses removed | source 136 silence regions / 25.8 % dead air → **1 region remaining** |
+| captions burned | caption band **10 343–12 764** bright px vs **2 541–4 869** in the uncaptioned source |
+| caption pages | 131 words → 37 pages (3.5 words/page), all inside the safe area |
+
+New modules: `host-render/cut.ts` (pause-free program compaction + word retiming), `host-render/captions.ts`, `scripts/{render-clip,verify-captions,qa-transcript,cut-plan}.ts`.
+
+Four bugs of mine found by verification rather than by review, all fixed: `loudnorm` applied to a video stream; ASS path with spaces breaking the filtergraph; proxy is video-only so audio must be paired explicitly; `loudnorm` leaving the output at 96 kHz until `-ar 48000` was pinned.
+
+Still open for this clip: the output is **16:9 at preview resolution** — a 1080×1920 vertical master needs either a full re-decode (~35 min) or face-follow cropping, which is not built yet.
 
 ## Installed reference: Hypit skill (session 5)
 
