@@ -29,6 +29,21 @@ const source = record.sources[0]
 const audioPath = source.proxies.audioAsr
 if (!existsSync(audioPath)) { console.error(`missing ${audioPath} — run \`pnpm ingest\` first`); process.exit(2) }
 
+/** Load `studio/.env` when the variable is not already exported (never printed, never logged). */
+async function loadDotEnv(): Promise<void> {
+  if (process.env.OPENAI_API_KEY !== undefined) return
+  const { existsSync: ex } = await import('node:fs')
+  if (!ex('.env')) return
+  const text = await readFile('.env', 'utf8')
+  for (const line of text.split('\n')) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line)
+    if (m?.[1] !== undefined && m[2] !== undefined && process.env[m[1]] === undefined) {
+      process.env[m[1]] = m[2].replace(/^["']|["']$/g, '')
+    }
+  }
+}
+await loadDotEnv()
+
 const apiKey = process.env.OPENAI_API_KEY
 const audioFp = await fingerprint(audioPath)
 const cachePath = join(paths.analysis, `transcript.${source.id}.json`)

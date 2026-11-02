@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "id": "prj_0e570872",
+  "name": "test-vid.mp4",
+  "slug": "test-vid",
+  "status": "ingesting",
+  "createdAt": "2026-11-02T17:07:18.696Z",
+  "sources": [
+    {
+      "id": "src-01",
+      "displayName": "test-vid.mp4",
+      "path": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/fixtures/incoming/test-vid.mp4",
+      "fingerprint": "0e570872e20b46de5ac91c4567e0919a64c619bb67ac6338c48fa64e51590498",
+      "bytes": 2907585259,
+      "durationMs": 480021,
+      "width": 3840,
+      "height": 2160,
+      "fps": 60.0438,
+      "vfr": false,
+      "videoCodec": "hevc",
+      "rotation": 0,
+      "hasAudio": true,
+      "proxies": {
+        "scrub": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/projects/test-vid/media/proxies/src-01/scrub-270p.mp4",
+        "preview": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/projects/test-vid/media/proxies/src-01/preview-540p.mp4",
+        "audio": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/projects/test-vid/media/proxies/src-01/audio-48k.wav",
+        "audioAsr": "/Users/albert/Desktop/CodeWork/Video Editor AI/studio/projects/test-vid/media/proxies/src-01/audio-16k-mono.wav"
+      }
+    }
+  ],
+  "outputs": [
+    {
+      "id": "vertical",
+      "width": 1080,
+      "height": 1920,
+      "fps": 30,
+      "profileRef": "final-1080p",
+      "safeArea": {
+        "top": 12,
+        "bottom": 18,
+        "left": 6,
+        "right": 6
+      }
+    },
+    {
+      "id": "wide",
+      "width": 1920,
+      "height": 1080,
+      "fps": 30,
+      "profileRef": "final-1080p",
+      "safeArea": {
+        "top": 8,
+        "bottom": 12,
+        "left": 4,
+        "right": 4
+      }
+    }
+  ],
+  "defaultOutputId": "vertical"
+}

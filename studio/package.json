@@ -14,7 +14,8 @@
     "bench": "tsx scripts/bench.ts",
     "ingest": "tsx scripts/ingest.ts",
     "probe-clip": "tsx scripts/ingest.ts",
-    "transcribe": "tsx scripts/transcribe.ts"
+    "transcribe": "tsx scripts/transcribe.ts",
+    "qa-transcript": "tsx scripts/qa-transcript.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

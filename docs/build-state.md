@@ -2,7 +2,7 @@
 
 One row per step. **A step is `pass` only when the verification command's output is pasted here.** States: `todo · wip · pass · fail · blocked · cut`.
 
-Last updated: session 4 — real footage received (**4K60 HEVC, 8 min**). **B1 audio ✓ · B3 silence ✓ · B2 code+tests ✓ (live run blocked on key)** · preview/scrub proxies rendering.
+Last updated: session 5 — **B2 live ✓** (720 words in 37 s, $0.048). Footage turns out to be **Russian**, which changed the caption rules. Preview proxy still rendering (~9.9 MB so far).
 
 ## Gates
 
@@ -32,7 +32,7 @@ Last updated: session 4 — real footage received (**4K60 HEVC, 8 min**). **B1 a
 | Step | State | Verification | Notes |
 |---|---|---|---|
 | B1 probe/proxy/audio | **wip** | probe: 3840×2160@60.04 (VFR flag: no) · hevc · 2.71 GB · 480.0 s · aac 2ch/48 kHz — 0.4 s · fingerprint (head+tail+size) 0.0 s · **audio ✓** 48 kHz stereo 92.2 MB + 16 kHz mono **15.4 MB** (under the 25 MB ASR limit), 480.02 s · preview + scrub rendering | **Ingest was reordered by measurement** — see findings. Two self-inflicted bugs fixed: `.part` suffix broke ffmpeg's muxer inference; a killed encode left a file that looked complete (now atomic rename + per-step cache) |
-| B2 ASR seam + OpenAI adapter | **code pass / live blocked** | `packages/host-ingest/src/asr/openai.ts` + 8 tests green: refuses non-`whisper-*` models (no word timestamps), maps verbose_json → validated `Transcript` with stable `w-####` ids, sends both `timestamp_granularities[]`, retries 5xx but not 4xx, computes cost, fails loudly on zero words; `parseSilencedetect` covered too | **13/13 tests pass.** Live run: `pnpm transcribe test-vid` stops cleanly with "OPENAI_API_KEY is not set" and names the prepared 15.4 MB audio |
+| B2 ASR seam + OpenAI adapter | **pass** | `packages/host-ingest/src/asr/openai.ts` + 8 tests green: refuses non-`whisper-*` models (no word timestamps), maps verbose_json → validated `Transcript` with stable `w-####` ids, sends both `timestamp_granularities[]`, retries 5xx but not 4xx, computes cost, fails loudly on zero words; `parseSilencedetect` covered too | **13/13 tests pass.** **Live:** 14.6 MB upload → **36.9 s**, **720 words / 96 segments**, 1 request, **$0.048**, language auto-detected **russian**, speech 14.4 s → 480.0 s, cached to `analysis/transcript.src-01.json` |
 | B3 silence map | **pass** | `detectSilence` on the real 8-min audio: **136 regions, 123.9 s of silence (25.8 % of the file)**, longest pauses 3.8–6.0 s, 180 regions under 400 ms; detected in **1.07 s** (vs ~35 min to decode the video) | This is the deterministic basis for "cut every pause" |
 | B4 face tracks | todo | — | ship `faces-null` if ONNX fights back |
 | B5 resolver + projection | todo | — | golden snapshots + projection property |
@@ -83,6 +83,15 @@ Last updated: session 4 — real footage received (**4K60 HEVC, 8 min**). **B1 a
 | H1 derivations + reframe | todo | — | — |
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
+
+## Findings worth keeping (session 5) — the footage is Russian, and the timestamps are not what I assumed
+
+1. **The clip is Russian** (718/720 words Cyrillic; whisper's `russian` detection was correct, not a misdetection). Consequences: caption presets need a Cyrillic-capable font (Arial Bold / Arial Black / Impact are present on this machine and cover Cyrillic); Q11 ("English only") is void; and the "max 4 words per page" rule is unusable — the longest words here are `Фундаментальная` (15 chars), `протестантская`/`вышесказанного` (14). **Caption pages must be fitted by measured width, not word count.** The layout solver already measures; the *rule catalogue* changes from a word cap to a width/advance target.
+2. **`whisper-1` word timestamps are contiguous, not acoustic.** **546 of 719 inter-word gaps are exactly 0 ms** — the provider subdivides its segment windows rather than aligning each word to the waveform. Karaoke highlighting is safe; per-word isolation ("this word starts exactly here") is not. **A refinement pass is now a required work item**: VAD-guided redistribution inside each segment (we already have a per-audio silence map to do it with).
+3. **6.5 % of words drift into detected silence** (47/720). Blind caption pages would put text over dead air — the most visible failure mode in short-form. Caption spans must snap to the silence map, and `pnpm qa-transcript` now measures this so it cannot regress.
+4. Coverage is otherwise healthy: words cover **94.9 %** of detected speech, 128 words/min, 89 real pauses >400 ms.
+
+New tool: `pnpm qa-transcript <project>` — deterministic transcript QA (coverage, drift, contiguity, script mix, longest words) with a plain-language reading of the numbers.
 
 ## Findings worth keeping (session 4)
 
