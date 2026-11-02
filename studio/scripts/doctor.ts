@@ -6,7 +6,7 @@
  * hours later.
  */
 import { execFileSync } from 'node:child_process'
-import { existsSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { homedir, platform, release, arch, availableParallelism, freemem, totalmem } from 'node:os'
 
 type Status = 'ok' | 'warn' | 'fail'
@@ -50,6 +50,27 @@ const CHROME_PATHS = [
 const chromePath = CHROME_PATHS.find((p) => existsSync(p))
 const chromeVersion = chromePath ? tryExec(chromePath, ['--version']) : null
 add('chrome', chromeVersion ? 'ok' : 'fail', chromeVersion ?? 'not found (needed for the T1/Chromium tier)')
+
+// Chrome runs *inside* the harness sandbox: its own sandbox cannot nest, and it
+// cannot write crashpad dumps outside the workspace, so it dies at startup
+// without these flags. Verified the hard way; the T1 renderer needs them too.
+const HEADLESS_FLAGS = [
+  '--headless=new', '--no-sandbox', '--disable-crash-reporter', '--disable-breakpad', '--disable-gpu',
+  // an isolated profile: without it Chrome collides with the user's running browser
+  `--user-data-dir=${process.cwd()}/.cache/chrome-doctor`,
+]
+if (chromePath) {
+  mkdirSync('.cache/chrome-doctor', { recursive: true })
+  let headlessOk = false
+  try {
+    const out = execFileSync(chromePath, [...HEADLESS_FLAGS, '--dump-dom', 'about:blank'], {
+      encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30_000,
+    })
+    headlessOk = out.includes('<html')
+  } catch { headlessOk = false }
+  add('chrome headless', headlessOk ? 'ok' : 'fail',
+    headlessOk ? 'boots with --no-sandbox --disable-crash-reporter' : 'cannot boot headless — T1 tier and UI probes unavailable')
+}
 
 // --- fonts -----------------------------------------------------------------
 const FONT_DIRS = ['/System/Library/Fonts/Supplemental', '/System/Library/Fonts', '/Library/Fonts', `${homedir()}/Library/Fonts`]

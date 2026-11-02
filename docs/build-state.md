@@ -10,7 +10,7 @@ Last updated: session 2 — decisions locked (OpenAI ASR, footage pending, Q3 de
 |---|---|---|---|
 | S0 segment-cache mechanism | **pass** | `proofs/segment-cache/`: 14.2 s cold vs 4.2 s incremental (3.37×), untouched segments sha256-identical, caption band YMAX 209→235 | pre-spike; ADR-005 evidence-backed |
 | S1 `agent.followup` from host plugin | todo | — | A4 |
-| S2 out-of-tree client bundle boots | **pass** | `GET /` → 200 · boot graph row `dsh-video-client-pane/client.js?rev=a69b854bde50` · `GET /plugins/dsh-video-client-pane/client.js` → 200 (4345 B) · `verify-client-bundle.mjs`: factory evaluates, `apply()` contributes one `conversation.view` entry, label thunk + session inject + first render OK | **gate green.** Fallback (d) not needed. Findings in `studio/README.md` |
+| S2 out-of-tree client bundle boots | **pass** | headless-Chrome probe (`scripts/ui-probe.mjs`) against :3099: 43/43 plugin bundles fetched incl. ours · `window.__DSH_STUDIO_DIAG__` = `{applyCalled:true, injectCallbackRan:true, registered:true, error:null}` · with a conversation open, `aria` tabs = `["Chat","Trajectory","Studio"]` · clicking Studio → `paneMounted:1`, pane text `"Studio pane online … ticking 3s"` | **gate green.** Fallback (d) not needed. Two caveats recorded below |
 | S3 HyperFrames range render + determinism | todo | — | **A2 — architecture gate** |
 | S4 Range media route + scrub | todo | — | A3 |
 | S5 hosted ASR adapter — OpenAI `whisper-1` | todo | — | B2 — provider decided; **blocked only on the key** |
@@ -20,7 +20,7 @@ Last updated: session 2 — decisions locked (OpenAI ASR, footage pending, Q3 de
 | Step | State | Verification | Notes |
 |---|---|---|---|
 | A0 workspace skeleton + `doctor` | **pass** | `pnpm -s typecheck` → exit 0 · `pnpm -s test` → **5/5 pass** (schema round-trip, invalid anchor, duplicate ids, min>max span, bad clip id) · `pnpm -s doctor` → *Hard requirements satisfied* (node 22.19, ffmpeg 7.0.2 + ass/subtitles/overlay/zoompan/sidechaincompress/loudnorm/silencedetect, libx264, VideoToolbox, Chrome 156, 376 system font faces, 154 GB free) | pnpm 11.7.0 + zod 3.24 installed; `esbuild` build script ignored by pnpm (harmless: tsx/vitest both run). Doctor warns on: no project fonts, no ASR key, no real footage, no global `dsh` CLI |
-| A1 spike S2 | **pass** | see gate row S2; composition verified with `--dump-config` (`# == @deepseek-ai/dsh-web-app, patched by dsh-studio`, webserver port 3099) | 6 gotchas documented (linked-bundle deps, in-box web bundle, `workspace:*` boundary, sourcemap/footer ordering, private `@deepseek-ai/*` types, `dsh web` alias) |
+| A1 spike S2 | **pass** | see gate row S2; composition verified with `--dump-config` (`# == @deepseek-ai/dsh-web-app, patched by dsh-studio`, webserver port 3099) | **8 gotchas**: linked-bundle deps · in-box web bundle · `workspace:*` boundary · sourcemap/footer ordering · private `@deepseek-ai/*` types · `dsh web` profile alias · **`conversation.view` paints only inside an open conversation** (the tab is absent on the session-list screen — cost one false "missing tab" report) · **Chrome needs `--no-sandbox --disable-crash-reporter --disable-breakpad` + an isolated `--user-data-dir` to run inside the harness sandbox** (it dies silently otherwise) |
 | A2 spike S3 | todo | — | decides `timebase` + whether motion presets are viable here |
 | A3 media route | todo | — | `206`/`Content-Range`/`416`/traversal tests |
 | A4 spike S1 | todo | — | — |
