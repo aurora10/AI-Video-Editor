@@ -304,7 +304,9 @@ Multi-user auth and sharing links · real-time collaboration · live-studio / st
 
 From **HyperFrames**: the determinism contract as a published invariant; `--plan`-style dry-run diffs with receipts on every programmatic edit (→ our patch API returns a diff *before* applying); `--resume`'s content-hashed segment discipline (→ our segment cache); `caption-overrides.json`'s separation of human micro-edits from generated source (→ our `overrides` layer that never touches the resolver's inputs); `--batch` + typed variables (→ our derivation/variant model); the player component as a fallback for a future hosted review page.
 
-From **Hypit**: word anchoring with an explicit projection step; a script that contains **no timecodes**; `check`/`plan` gates before expensive operations (→ our `dryRun` + budget guard); provider/endpoint indirection so no component names a vendor (→ our renderer seam, §5.5); the **Studio Companion** pattern where a component declares its own editor affordances (→ our `preset.describe()` inspector schema, §8.6); `FEEDBACK.json` as a file-based, agent-readable note store (→ our notes as session events + file mirror).
+From **Hypit**, additionally, *production craft* (read from its published skill as reference material — ideas, never text, code, or its runtime; see ADR-015): the talking-head recipe name **`pause-trim-jump-cuts`** is exactly the form we are building; captions group by **meaning, not word count** (keep negation, articles, names and quantities with their words); page length is chosen from **reading time and the space the actual font occupies**; a page may legitimately wrap to two lines; karaoke is a *choice* between `current` and `trail`, with `step` vs `wipe` transitions; and captions are hidden during demonstrations.
+
+From **Hypit** originally: word anchoring with an explicit projection step; a script that contains **no timecodes**; `check`/`plan` gates before expensive operations (→ our `dryRun` + budget guard); provider/endpoint indirection so no component names a vendor (→ our renderer seam, §5.5); the **Studio Companion** pattern where a component declares its own editor affordances (→ our `preset.describe()` inspector schema, §8.6); `FEEDBACK.json` as a file-based, agent-readable note store (→ our notes as session events + file mirror).
 
 ### 4.5 What neither does — our moat
 
@@ -1003,6 +1005,8 @@ interface TextPreset {
 interface MotionSpec { preset: string; durationMs: number; easing: string; params?: Record<string, JsonValue> }
 ```
 
+**Fonts are a render input, not a system dependency.** The preset declares a font *file* vendored into the project's assets (never a family name), the renderer uses exactly that file, and synthetic bold/italic is disabled — otherwise a machine with a substituted face silently restyles every caption. Cyrillic coverage is verified by rendering, not assumed: on this machine `Arial Bold` draws Cyrillic correctly (PSNR 19.9 dB against a `?` control, i.e. genuinely distinct glyphs), but it is a licensed Monotype face, so shipping requires an OFL alternative (Inter/Manrope/Noto Sans all cover Cyrillic).
+
 v1 ships **8 presets**, chosen to cover the reference's list rather than to be exhaustive: `captions-bold-pop`, `captions-fitted-line`, `captions-stack-karaoke`, `title-statement`, `lower-third-minimal`, `stat-callout`, `broll-inset-rotate`, `fullscreen-animation`. Each ships with a golden-frame fixture (§13.2) so typography regressions are caught as image diffs, not opinions.
 
 ### 8.3 Layout solver (the piece that makes "text never covers my face" real)
@@ -1571,6 +1575,7 @@ Pixel-perfect equality of Chromium output across macOS/Linux/Windows (documented
 | ADR-012 | Rule violations warn in preview, soft-block `final` | Visible objection beats silent correction | Yes |
 | ADR-013 | **Hosted ASR by default (OpenAI `whisper-1`), local fallback**; faces and encoding stay on-device; vision QA opt-in | Hosted transcription is better and much faster than CPU whisper on the target hardware, and it is the single highest-leverage artifact in the pipeline — "let the AI do the heavy lifting". Video never leaves the machine | Yes (flip the provider setting to `local`) |
 | ADR-014 | 8 presets in v1, not 20+ | Quality per preset (golden frames, inspector, tier fallback) beats breadth | Yes |
+| ADR-015 | The Hypit skill is installed as **reference material only** — never as a runtime dependency, and its text is never copied into shipped files | Its licence permits using it to make videos but forbids redistribution and multi-tenant operation; its production guidance is nonetheless the best public writing on this form, and reading it costs nothing | Yes |
 
 ---
 

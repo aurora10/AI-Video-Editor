@@ -39,3 +39,4 @@ Thumbs.db
 
 # spike profile home
 studio/.dsh-home/
+studio/.agents/

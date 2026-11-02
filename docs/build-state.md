@@ -84,6 +84,14 @@ Last updated: session 5 — **B2 live ✓** (720 words in 37 s, $0.048). Footage
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## Installed reference: Hypit skill (session 5)
+
+`npx skills add hypit-ai/hypit --all` → `studio/.agents/skills/hypit` (764 KB, 40 reference files). **Gitignored** — it is third-party text and must not enter our repo. Deliberately *not* placed at the repo-root `.agents/skills`, so DSH does not load it into agent sessions alongside our own workflow.
+
+Taken from it (ideas only): the talking-head recipe name `pause-trim-jump-cuts`; caption grouping by meaning rather than word count; fit by measured advance width at delivery size; two-line pages are legitimate; karaoke is a `current`/`trail` × `step`/`wipe` choice; hide captions during demonstrations; fonts travel with the build as files with synthetic bold disabled. Four of these became rules in §6.6 and one became a preset constraint in §8.2.
+
+Not taken: its runtime, its SVML authoring model, its generation-provider pipeline. Its licence (Apache 2.0 **+ no multi-tenant, no commercial redistribution**) forbids building our product on it — ADR-015.
+
 ## Findings worth keeping (session 5) — the footage is Russian, and the timestamps are not what I assumed
 
 1. **The clip is Russian** (718/720 words Cyrillic; whisper's `russian` detection was correct, not a misdetection). Consequences: caption presets need a Cyrillic-capable font (Arial Bold / Arial Black / Impact are present on this machine and cover Cyrillic); Q11 ("English only") is void; and the "max 4 words per page" rule is unusable — the longest words here are `Фундаментальная` (15 chars), `протестантская`/`вышесказанного` (14). **Caption pages must be fitted by measured width, not word count.** The layout solver already measures; the *rule catalogue* changes from a word cap to a width/advance target.
