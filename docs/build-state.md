@@ -84,6 +84,19 @@ Last updated: session 6 — **first end-to-end cut rendered and verified.** Prox
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## Owner review of the first cut (session 6) — the work list
+
+Eight observations, each now a numbered requirement in `development-plan.md` §3.5 and a step in
+`build-plan.md` §9b: sound not deep / captions too high (needs face detection) / pacing too fast /
+vertical option / dated font / graphics layer / background behind speaker / an edit pane with
+click-to-instruct.
+
+Also corrected: **the stack is DeepSeek-first.** Verified that DeepSeek has no speech-to-text endpoint
+(text + image only), so transcription is the single non-DeepSeek capability and is now **local whisper
+by default** (ADR-013 revised), with the OpenAI adapter kept as an opt-in accelerator. The existing
+transcript stands; this changes future runs only. `studio/.env` keeps the key until the owner deletes
+it — it is gitignored, and rotating it was already advised.
+
 ## First real cut (session 6)
 
 `pnpm render-clip test-vid --from 4:47 --to 5:47 --label option2` → `studio/out/test-vid-option2.mp4`

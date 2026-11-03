@@ -246,6 +246,27 @@ Wire `review.submit` to `agent.followup` (from A4), including the `<video_review
 
 ---
 
+## 9b. Phase P — the review round (added session 6, supersedes the ordering in §8/§9 for now)
+
+The owner watched the first cut and gave eight observations (`development-plan.md` §3.5). They outrank
+the remaining v1.0 tail because they are what makes an actual video watchable, and because the same
+clip can prove each one. Same discipline: every item ends in a measurement.
+
+| Step | What | Verification | Est. |
+|---|---|---|---|
+| **P1a** | Voice polish chain (high-pass → low shelf at 120 Hz → presence → de-ess → compress → denoise → −14 LUFS) | low-band/presence-band ratio improves ≥1.5 dB, peak ≤ −1 dBFS, no clipping; A/B snippets written for the owner | 2 h |
+| **P1b** | Face track (YuNet ONNX) + `below-chin` caption anchor | caption boxes vs face boxes: 0 px² overlap on 100 % of sampled frames; chin gap within preset bounds | 3 h |
+| **P1c** | Pacing profiles (`calm`/`normal`/`fast`) | `calm` ≥10 % longer than `fast` on the same window; no retained pause >600 ms | 1.5 h |
+| **P1d** | Modern OFL fonts vendored + script-coverage gate | each shipped font renders the transcript's script (probe string vs `?` control); no preset names a system family | 1.5 h |
+| **P1e** | Re-render the same 4:47–5:47 cut with P1a–P1d, side by side with the old file | owner watches two files, not a report | 1 h |
+| **P2** | 9:16 reframe following the face track | face box inside the crop ≥95 % of frames; both 16:9 and 9:16 delivered | 3 h |
+| **P3a** | Graphics layer (`graphics[]` in the EDL, T0 overlays) | overlay pixels present in the expected band with expected alpha | 4 h |
+| **P3b** | Background: studio inset (T0) then true matte replacement (experiment) | inset geometry exact; matte gets a halo metric before it ships | 4 h |
+| **P4** | Studio pane: timeline + click-to-instruct + notes bound to time | a 5-note round re-renders only the touched range, in the pane | 6 h |
+
+Order rationale: P1 makes the clip the owner already reviewed *good*, which is the fastest honest
+feedback loop; P2–P4 then add capability on top of a baseline that is worth looking at.
+
 ## 10. MVP definition of done
 
 All of these, with the verification output pasted in the ledger:

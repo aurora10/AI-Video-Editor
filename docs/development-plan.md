@@ -244,6 +244,24 @@ Priority: **M** = must (v1), **S** = should (v1.5), **C** = could (v2). Grouped 
 | FR-83 | The agent never has to read a full EDL or a full transcript into context (§9.4) | M |
 | FR-84 | Every tool result is replayable from the session log alone | M |
 
+### 3.5 Revision 1 — requirements added after watching the first real cut
+
+Every item below came from the owner's review of `test-vid-option2.mp4` (session 6). They are stated
+as observable outcomes, because that review is the only quality signal that counts.
+
+| # | Observed | Requirement | How it is satisfied | Phase |
+|---|---|---|---|---|
+| R1 | "The sound is not deep — maybe poor mic" | **Voice polish** on every render: intelligibility and warmth from a weak built-in mic | Filter chain: high-pass 80 Hz → low-shelf gain at 120 Hz (the "depth") → presence lift ~3 kHz → de-esser 6–8 kHz → 3:1 compression → `afftdn` denoise → loudness −14 LUFS. Measured, not guessed: assert the low-band (80–250 Hz) to presence-band (2–5 kHz) ratio improves by ≥1.5 dB with no clipping | P1 |
+| R2 | "The text is too high — need face detection" | Captions sit **below the chin**, never over the face | Implement the face track (FR-06) and make the layout solver's `below-chin` anchor real: chair-line = chin of the nearest face + preset gap; assert 0 px² overlap between caption boxes and face boxes | P1 |
+| R3 | "It goes a bit too fast" | **Pacing control** — the cut should breathe | `pace: 'calm' | 'normal' | 'fast'` profile: retains 120–200 ms of every removed pause as breathing room at `calm`, keeps a minimum clip length, never re-times below 0.95×. Assert `calm` runs ≥10 % longer than `fast` on the same window, with no pause region longer than 600 ms | P1 |
+| R4 | "There should be an option to make the video vertical" | 9:16 delivery from 16:9 footage that does not decapitate the speaker | Reframe from the face track: a smoothed 9:16 crop window following the subject, with a safe fallback to centre. Assert the face box stays inside the crop for ≥95 % of frames | P2 |
+| R5 | "The font looks dated" | Modern typography, Cyrillic-capable | Ship 3–4 OFL families (Inter, Manrope, Archivo Black, Bebas Neue) as **vendored files**; a font that cannot render the transcript's script is rejected automatically by rendering a probe string and comparing against a `?` control (the check already used on Arial). No system-font family names in presets | P1 |
+| R6 | "A layer on top of the video with graphics" | **Graphics layer**: shapes, images, logos, charts, mockups above the footage | `graphics[]` track in the EDL (kind, asset, box, motion, z, span); T0 renders stills/PNGs via `overlay`, T1 renders animated ones in the Chromium composition. Assert overlay pixels appear in the expected band with the expected alpha | P3 |
+| R7 | "A background behind the speaker" | **Background treatment**: the speaker can sit in front of a designed backdrop | Two levels, cheapest first: (a) *studio inset* — the footage as a framed panel over a generated/designed background (T0, exact geometry); (b) *true replacement* — subject matte via segmentation, speaker composited over a new background (T2 experiment; a halo check gates it) | P3 |
+| R8 | "An edit pane like a regular video editor where I point at a time and ask for changes" | The Studio pane with **click-to-instruct** | Already F1–F5; now explicitly: clicking the timeline pins a time, the instruction box sends it as a note bound to that time and target, and the agent's patch is scoped to that range. Assert a 5-note round re-renders only the touched range | P4 |
+
+These do not replace earlier requirements; R2/R3/R4/R5 change *defaults* (captions anchored by face, pacing, reframe, fonts), so the earlier FR text is amended where they overlap.
+
 ### 3.3 Non-functional requirements
 
 | ID | Requirement | Target |
@@ -1044,6 +1062,8 @@ Note the precedence order, which is a design decision worth stating: **rule viol
 | proxy (scrub) | `ffmpeg -i src -vf scale=-2:270 -c:v libx264 -g 1 -crf 30 -an` | All-intra for instant seek; ~15–40 MB/min |
 | proxy (preview) | `ffmpeg -i src -vf scale=-2:540,fps=30 -c:v libx264 -g 15 -keyint_min 15 -sc_threshold 0 -crf 21 -c:a aac` | Fixed GOP so segment boundaries snap cheaply |
 | audio | `ffmpeg -i src -vn -ac 2 -ar 48000 -c:a pcm_s16le` | Mono extraction for transcription too |
+> **Revision after the first real cut.** The stack is meant to be DeepSeek-first, and the owner flagged the OpenAI key. Verified fact: **DeepSeek exposes no speech-to-text endpoint** — its models accept `text` and `image` only (the harness adapter's declared modalities are exactly `['text','image']`). Transcription is therefore the single unavoidable non-DeepSeek capability, and it is now **local by default** (`faster-whisper`, multilingual `small`) so nothing leaves the machine and no third party is involved. The hosted adapter is kept for quality/speed when the owner opts in. Everything the *agent* decides remains DeepSeek.
+
 | transcribe | **Hosted ASR through the `TranscriptionProvider` seam. Default: OpenAI `whisper-1`** — `POST /v1/audio/transcriptions` with `response_format=verbose_json` and `timestamp_granularities[]=word` + `[]=segment`. Extract 16 kHz mono WAV (mono; chunk at silence boundaries if over the 25 MB limit), one call per source, normalise `words[].word/start/end` into our `Word[]` with deterministic ids, cache by `(audioSha256, provider, model, granularity)`. **Word timestamps exist only on `whisper-1`, not on the `gpt-4o-transcribe` family — never "upgrade" the model without checking that.** Published price ≈ $0.006/min (~$0.36/hr), ~1.6× the reference's ElevenLabs figure: fine for the accuracy gain, confirm on the bill. `local:distil-small.en` stays as the no-key/offline fallback | Language autodetect (hint when known); segment texts kept for chapter/reel detection; provider + model + `costUsd` recorded on the transcript |
 | silence | energy + VAD over the audio; classify `silence` / `breath` / `filler` | Feeds both cutting and caption hanging |
 | faces | sample 3 fps, detect + track, smooth with a 5-frame median | Feeds safe zones and 9:16 reframe |
@@ -1573,7 +1593,7 @@ Pixel-perfect equality of Chromium output across macOS/Linux/Windows (documented
 | ADR-010 | Two render grades: preview 540p / final 1080p, separate segment namespaces | Iteration cheap, delivery good; matches the reference's 720p-then-1080p logic | Yes |
 | ADR-011 | Relative deltas for direct manipulation | Absolute positions break on re-flow | No |
 | ADR-012 | Rule violations warn in preview, soft-block `final` | Visible objection beats silent correction | Yes |
-| ADR-013 | **Hosted ASR by default (OpenAI `whisper-1`), local fallback**; faces and encoding stay on-device; vision QA opt-in | Hosted transcription is better and much faster than CPU whisper on the target hardware, and it is the single highest-leverage artifact in the pipeline — "let the AI do the heavy lifting". Video never leaves the machine | Yes (flip the provider setting to `local`) |
+| ADR-013 | **ASR is provider-selectable; local whisper is the default**, hosted API (OpenAI `whisper-1`) is an opt-in accelerator. Faces and encoding stay on-device; vision QA opt-in | Hosted transcription is better and much faster than CPU whisper on the target hardware, and it is the single highest-leverage artifact in the pipeline — "let the AI do the heavy lifting". Video never leaves the machine | Yes (flip the provider setting to `local`) |
 | ADR-014 | 8 presets in v1, not 20+ | Quality per preset (golden frames, inspector, tier fallback) beats breadth | Yes |
 | ADR-015 | The Hypit skill is installed as **reference material only** — never as a runtime dependency, and its text is never copied into shipped files | Its licence permits using it to make videos but forbids redistribution and multi-tenant operation; its production guidance is nonetheless the best public writing on this form, and reading it costs nothing | Yes |
 
