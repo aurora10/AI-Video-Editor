@@ -33,6 +33,14 @@ export interface CompactOptions {
    */
   pauseRetainMs?: number
   /**
+   * Per-pause retention, overriding `pauseRetainMs` for individual pauses.
+   *
+   * This is where editorial judgment enters: a stumble deserves a hard cut, while the beat after
+   * a claim or a rhetorical question deserves to be kept. A single global number cannot say that,
+   * which is why the pace slider alone makes every video feel mechanical.
+   */
+  pauseRetainOverride?: (pauseSrcMs: number, pauseLengthMs: number) => number | undefined
+  /**
    * A kept region shorter than this is not speech worth keeping: it is detector noise
    * (measured: one region came out at 39 ms). Such a sliver is merged into whatever
    * precedes it rather than becoming its own cut.
@@ -48,53 +56,57 @@ export interface CompactOptions {
 /** Build the pause-free program for the source window `[fromMs, toMs)`. */
 export function compactWindow(silence: SilenceMap, fromMs: number, toMs: number, opts: CompactOptions = {}): CompactedWindow {
   const pauseMs = opts.pauseMs ?? 250
-  const pauseSpans = silence.regions
-    .filter((r) => r.endMs > 0 && r.endMs - r.startMs >= pauseMs)
-    .map((r) => [Math.max(fromMs, r.startMs), Math.min(toMs, r.endMs)] as [number, number])
-    .filter(([a, b]) => b > a)
-  // Mumbles are removed the same way as pauses, then merged so overlapping spans cannot
-  // produce a negative-length region.
-  const extra: [number, number][] = opts.extraCuts ?? []
-  const cutSpans = extra
-    .map(([a, b]) => [Math.max(fromMs, a), Math.min(toMs, b)] as [number, number])
-    .filter(([a, b]) => b > a)
-  const pauses = [...pauseSpans, ...cutSpans].sort((a, b) => a[0] - b[0])
-    .reduce<[number, number][]>((acc, span) => {
-      const last = acc[acc.length - 1]
-      if (last !== undefined && span[0] <= last[1]) last[1] = Math.max(last[1], span[1])
-      else acc.push([...span] as [number, number])
-      return acc
-    }, [])
-
   const minSpeechMs = opts.minSpeechMs ?? 200
   const retain = Math.max(0, opts.pauseRetainMs ?? 0)
 
-  // 1. speech spans = everything that is not a pause
+  // Retention belongs to THE PAUSE ITSELF, decided here and before any merging.
+  //
+  // Keeping `retain` ms of a pause is identical to cutting from `pauseStart + retain` onward, so
+  // each pause becomes a cut of its tail. That removes the earlier contortion of extending a merged
+  // region's tail afterwards — which lost the original pause key (so a cut-plan decision could not
+  // be found) and halved explicit decisions.
+  const pauses = silence.regions
+    .filter((r) => r.endMs > 0 && r.endMs - r.startMs >= pauseMs)
+    .map((r): [number, number] => [Math.max(fromMs, r.startMs), Math.min(toMs, r.endMs)])
+    .filter(([a, b]) => b > a)
+
+  const keptFrom = (pauseStart: number, pauseLen: number): number => {
+    const decided = opts.pauseRetainOverride?.(pauseStart, pauseLen)
+    const want = decided ?? retain
+    // A pace value never eats more than half a pause (keeps quick cuts even); an explicit
+    // decision may take the whole pause, because it is a decision rather than a default.
+    const limit = decided === undefined ? pauseLen / 2 : pauseLen
+    return Math.max(0, Math.min(want, limit))
+  }
+
+  const cuts: [number, number][] = [
+    ...pauses.map(([a, b]): [number, number] => [a + keptFrom(a, b - a), b]),
+    ...(opts.extraCuts ?? []).map(([a, b]): [number, number] => [Math.max(fromMs, a), Math.min(toMs, b)]),
+  ].filter(([a, b]) => b > a)
+
+  // merge overlapping cuts
+  const mergedCuts: [number, number][] = []
+  for (const cut of cuts.sort((a, b) => a[0] - b[0])) {
+    const last = mergedCuts[mergedCuts.length - 1]
+    if (last !== undefined && cut[0] <= last[1]) last[1] = Math.max(last[1], cut[1])
+    else mergedCuts.push([...cut] as [number, number])
+  }
+
+  // speech = the complement, dropping slivers that are detector noise
   const rawSpans: [number, number][] = []
   let cursor = fromMs
-  for (const [a, b] of pauses) {
+  for (const [a, b] of mergedCuts) {
     if (a > cursor) rawSpans.push([cursor, a])
     cursor = Math.max(cursor, b)
   }
   if (cursor < toMs) rawSpans.push([cursor, toMs])
 
-  // 2. drop detector noise: a span shorter than minSpeechMs merges into its predecessor
-  const merged: [number, number][] = []
+  const kept: [number, number][] = []
   for (const span of rawSpans) {
-    const prev = merged[merged.length - 1]
+    const prev = kept[kept.length - 1]
     if (span[1] - span[0] < minSpeechMs && prev !== undefined) { prev[1] = span[1]; continue }
-    merged.push([...span] as [number, number])
+    kept.push([...span] as [number, number])
   }
-
-  // 3. pacing: extend each span's tail into the following pause, never past the midpoint of that
-  //    gap. Done AFTER merging, so the breath cannot be swallowed by the sliver rule — doing it
-  //    first made "calm" shorter than "normal", which is how this was caught.
-  const kept: [number, number][] = merged.map((span, i) => {
-    const next = merged[i + 1]
-    if (next === undefined || retain === 0) return span
-    const gap = next[0] - span[1]
-    return [span[0], span[1] + Math.min(retain, gap / 2)]
-  })
 
   const regions: KeptRegion[] = []
   let program = 0

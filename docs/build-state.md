@@ -84,6 +84,34 @@ Last updated: session 11 — **all eight of the owner's notes are done**, includ
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## AI cut planning (session 12) — can the model decide when to jump-cut?
+
+Asked by the owner. Yes, within a specific and honest boundary.
+
+**What the model is good at**: judging a pause from its sentence context. On the 4:47–5:47 window it
+made 11 decisions, and the categories differ in a way no global setting can express:
+
+| kind | count | example |
+|---|---|---|
+| stumble | 3 | «что же делать я не знал ⟪⟫ он мог это сделать» — a false start; cut hard so the viewer never sees it |
+| filler | 3 | «…деноминации ⟪⟫ то получается…» — mid-sentence connective; cut |
+| breath | 2 | sentence boundary; keep 140 ms so the speech is not staccato |
+| beat | 3 | after «не правда ли?» — **keep 700 ms**, the silence IS the emphasis |
+
+**What it cannot judge yet**: visual jumps. A hard cut is safe in audio and risky on picture when the
+speaker is mid-gesture or shifts position. That needs frame differencing around each cut point, which
+is not built.
+
+**Plumbing matters as much as the model.** The first implementation applied retention AFTER merging
+pauses, which lost the pause's original key (so plan decisions silently missed) and halved an
+explicit decision. Reformulated: retention is a property of the pause itself — keeping N ms is the
+same as cutting from `pauseStart + N` onward — decided before any merging. Verified: 10/11 decisions
+land at exactly the requested retention.
+
+Result on the same minute of footage: **hard cuts 55.17 s · AI plan 55.29 s · global calm 56.44 s**.
+The plan is nearly as tight as cutting everything, because the millimetres it spends are spent only
+where an editor would spend them.
+
 ## Sessions 10–11: the last three of the eight notes
 
 ### Mumbles (session 11)

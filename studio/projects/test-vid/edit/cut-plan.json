@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "planner": "agent",
+  "createdAt": "2026-11-03T20:30:00.000Z",
+  "decisions": [
+    { "srcMs": 292248, "retainMs": 0, "kind": "filler",
+      "reason": "mid-sentence connective ('...деноминации ⟪⟫ то получается...'); cutting it joins one thought to its consequence with no visual jump in meaning" },
+    { "srcMs": 295471, "retainMs": 320, "kind": "beat",
+      "reason": "immediately after the strong claim 'Бог он очень слабый' — the pause is where that lands; cutting it wastes the statement" },
+    { "srcMs": 309536, "retainMs": 0, "kind": "stumble",
+      "reason": "false start: 'что же делать я не знал ⟪⟫ он мог это сделать' — the speaker restarts the thought" },
+    { "srcMs": 311461, "retainMs": 0, "kind": "stumble",
+      "reason": "'знал как он мог это сделать ⟪⟫ я ему дал свободу воли' — second half of the same restart; both halves must go" },
+    { "srcMs": 315405, "retainMs": 0, "kind": "filler",
+      "reason": "mid-clause hesitation inside 'а вот он так ⟪⟫ поступил'" },
+    { "srcMs": 315761, "retainMs": 140, "kind": "breath",
+      "reason": "sentence boundary before the rhetorical question; a short breath keeps it human without stalling" },
+    { "srcMs": 320392, "retainMs": 140, "kind": "breath",
+      "reason": "sentence boundary; same treatment as the previous one so the rhythm stays even" },
+    { "srcMs": 323388, "retainMs": 700, "kind": "beat",
+      "reason": "after the rhetorical question 'не правда ли?' — the silence IS the emphasis; a hard cut here would gut the line" },
+    { "srcMs": 325069, "retainMs": 420, "kind": "beat",
+      "reason": "the second half of the same rhetorical pause, before 'Такое ощущение что в Эдемском саду' — kept, but shorter than the first so it does not drag" },
+    { "srcMs": 334298, "retainMs": 0, "kind": "stumble",
+      "reason": "repeated phrase 'таким образом ... таким образом что ⟪⟫ ну не ожидал' plus the filler 'ну' — cut the whole stumble" },
+    { "srcMs": 340306, "retainMs": 0, "kind": "filler",
+      "reason": "'начал искать план Б ⟪⟫ и вот в виде' — connective pause, no meaning lost" }
+  ]
+}

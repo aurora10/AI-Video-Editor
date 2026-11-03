@@ -11,7 +11,7 @@ import { join, resolve } from 'node:path'
 import { Transcript } from '@dsh-video/core'
 import { chinAt, detectFaces, detectSilence, projectPaths, refineWordTimings } from '../packages/host-ingest/src/index.js'
 import { applyNotes, compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, fitSizePx, planCaptionPages, planGraphics, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
-import { EMPTY_GRAPHICS, GraphicsTrack, Note, detectMumbles, totalCutMs } from '@dsh-video/core'
+import { CutPlan, EMPTY_GRAPHICS, GraphicsTrack, Note, decisionFor, detectMumbles, totalCutMs } from '@dsh-video/core'
 
 const argv = process.argv.slice(2)
 const slug = argv.find((a) => !a.startsWith('--'))
@@ -62,9 +62,21 @@ const storedNotes: Note[] = existsSync(notesPath)
   ? (await readFile(notesPath, 'utf8')).split('\n').filter((l) => l.trim() !== '').map((l) => Note.parse(JSON.parse(l)))
   : []
 
+// An editorial cut plan, when one exists, decides retention per pause; the pace setting is the
+// fallback for pauses the plan does not mention.
+const planPath = join(paths.edit, 'cut-plan.json')
+const cutPlan: CutPlan | null = existsSync(planPath)
+  ? CutPlan.parse(JSON.parse(await readFile(planPath, 'utf8')))
+  : null
+if (cutPlan !== null) {
+  const kinds = cutPlan.decisions.reduce<Record<string, number>>((a, d) => { a[d.kind] = (a[d.kind] ?? 0) + 1; return a }, {})
+  console.log(`  cut plan: ${cutPlan.decisions.length} decisions by ${cutPlan.planner} — ${Object.entries(kinds).map(([k, n]) => `${k} ${n}`).join(' · ')}`)
+}
+
 const win = compactWindow(silence, fromMs, toMs, {
   pauseMs: 250,
   pauseRetainMs: PAUSE_RETAIN[pace],
+  ...(cutPlan === null ? {} : { pauseRetainOverride: (pauseSrcMs: number) => decisionFor(cutPlan, pauseSrcMs)?.retainMs }),
   extraCuts: [
     ...mumbles.map((c) => [c.startMs, c.endMs] as [number, number]),
     // a 'cut this' note is a hand-placed removal, evaluated before the program is built
@@ -344,7 +356,7 @@ await writeFile(metaPath, JSON.stringify({
     : `${orientation === 'vertical' ? 'crop' : 'plain'}${gradeChain.length > 0 ? `+${background}` : ''}`,
   backgroundApplied: wantsFill || gradeChain.length > 0,
   captions: withCaptions ? { topPx, fontPx: style.sizePx, mode: captionMode, font: font.entry.key } : null,
-  pace, pauseRetainMs: PAUSE_RETAIN[pace],
+  pace, pauseRetainMs: PAUSE_RETAIN[pace], cutPlan: cutPlan === null ? null : cutPlan.decisions.length,
   voicePolish: !noVoice,
   programMs: win.programDurationMs,
   // Source↔program map. The pane authors notes against program time; the server converts them to
