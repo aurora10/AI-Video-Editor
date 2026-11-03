@@ -111,10 +111,14 @@ export async function writeProjectSettings(
   for (const [key, value] of Object.entries(patch) as [keyof RenderSettings, never][]) {
     const spec = OPTIONS[key]
     if (spec === undefined) throw new Error(`unknown setting "${key}"`)
-    const allowed = spec.find((o) => o.value === String(value))
-    if (allowed === undefined) throw new Error(`"${String(value)}" is not a valid value for ${key}`)
+    // Booleans are exposed to the pane as on/off buttons but must be STORED as booleans: keeping
+    // the string meant `captions: 'off'` was truthy, so captions could never be turned off.
+    const raw = typeof next[key] === 'boolean' ? (value === true ? 'on' : 'off') : String(value)
+    const allowed = spec.find((o) => o.value === raw)
+    if (allowed === undefined) throw new Error(`"${raw}" is not a valid value for ${key}`)
     if (!allowed.built) throw new Error(`${key} = "${allowed.value}" is not implemented yet (${allowed.note ?? 'unbuilt'})`)
-    next[key] = value
+    if (typeof next[key] === 'boolean') (next as unknown as Record<string, unknown>)[key] = raw === 'on'
+    else (next as unknown as Record<string, unknown>)[key] = value
   }
   // A background treatment needs a frame that does not fill the canvas. Horizontal delivery fills
   // it, so the treatment is meaningless there. Rejecting the click made the control look broken;

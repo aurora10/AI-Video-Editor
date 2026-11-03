@@ -116,6 +116,14 @@ export interface CaptionPage {
   topPx?: number
   /** Font size actually used for this page, when it had to shrink to fit below the chin. */
   sizePx?: number
+  /**
+   * Hard stop for the "hold until the next caption" behaviour.
+   *
+   * Captions hold across a page gap so the screen never blinks, but a page must NOT hold across a
+   * range where captions were deliberately suppressed (a 'no captions here' note) — that painted a
+   * caption straight through the window the user had just cleared.
+   */
+  holdUntilMs?: number
 }
 
 const wordText = (w: Word, style: CaptionStyle): string => (style.uppercase ? w.text.toUpperCase() : w.text)
@@ -265,7 +273,7 @@ export function toAss(pages: CaptionPage[], opts: AssOptions): string {
   // A caption holds until the next one appears. Without this the screen goes blank between
   // pages, which the eye reads as flicker; speech pauses are already removed from the
   // program, so holding never covers dead air for long.
-  const displayEnd = (i: number): number => pages[i + 1]?.startMs ?? pages[i]!.endMs
+  const displayEnd = (i: number): number => Math.min(pages[i + 1]?.startMs ?? pages[i]!.endMs, pages[i]!.holdUntilMs ?? Number.POSITIVE_INFINITY)
   const events = pages.flatMap((page, i) => {
     const pageEnd = displayEnd(i)
     const size = page.sizePx ?? style.sizePx

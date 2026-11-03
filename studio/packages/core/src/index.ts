@@ -11,6 +11,7 @@ export * from './analysis.js'
 export * from './fonts.js'
 export * from './graphics.js'
 export * from './mumbles.js'
+export * from './notes.js'
 
 /** Bumped whenever `resolve()` output could change for an unchanged EDL. */
 export const RESOLVER_VERSION = 0

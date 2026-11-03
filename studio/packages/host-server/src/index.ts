@@ -13,6 +13,7 @@ import { existsSync } from 'node:fs'
 import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { confine, isTrustedLocalRequest, serveFile } from './media.js'
 import { OPTIONS, readProject, writeProjectSettings, type RenderSettings } from './settings.js'
+import { addNote, deleteNote, readNotes, readTimeline } from './notes.js'
 
 export { OPTIONS, DEFAULT_SETTINGS, readProject, writeProjectSettings } from './settings.js'
 export type { RenderSettings, OptionSpec } from './settings.js'
@@ -116,6 +117,8 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
             project: { slug, id: record.id, name: record.name },
             settings: record.settings,
             options: OPTIONS,
+            timeline: await readTimeline(projectsRoot, slug),
+            notes: await readNotes(projectsRoot, slug),
             render: latest === undefined
               ? null
               : {
@@ -127,6 +130,37 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
             job: job ?? null,
           },
         })
+        return
+      }
+
+      if (method === 'notes' && req.method === 'GET') {
+        const slug = url.searchParams.get('project')
+        if (slug === null) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project required' } }); return }
+        const notes = await readNotes(projectsRoot, slug)
+        json(res, 200, { ok: true, value: { notes } })
+        return
+      }
+
+      if (method === 'notes' && req.method === 'POST') {
+        const body = (await readBody(req)) as {
+          project?: string; kind?: string; progStartMs?: number; progEndMs?: number; text?: string
+        }
+        if (body.project === undefined || body.kind === undefined || body.progStartMs === undefined) {
+          json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project, kind and progStartMs required' } })
+          return
+        }
+        const note = await addNote(projectsRoot, body.project, {
+          kind: body.kind, progStartMs: body.progStartMs, progEndMs: body.progEndMs ?? body.progStartMs + 2000, text: body.text ?? '',
+        })
+        json(res, 200, { ok: true, value: { note } })
+        return
+      }
+
+      if (method === 'notes/delete' && req.method === 'POST') {
+        const body = (await readBody(req)) as { project?: string; id?: string }
+        if (body.project === undefined || body.id === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project and id required' } }); return }
+        await deleteNote(projectsRoot, body.project, body.id)
+        json(res, 200, { ok: true, value: { deleted: body.id } })
         return
       }
 

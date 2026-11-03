@@ -10,8 +10,8 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { Transcript } from '@dsh-video/core'
 import { chinAt, detectFaces, detectSilence, projectPaths, refineWordTimings } from '../packages/host-ingest/src/index.js'
-import { compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, fitSizePx, planCaptionPages, planGraphics, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
-import { EMPTY_GRAPHICS, GraphicsTrack, detectMumbles, totalCutMs } from '@dsh-video/core'
+import { applyNotes, compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, fitSizePx, planCaptionPages, planGraphics, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
+import { EMPTY_GRAPHICS, GraphicsTrack, Note, detectMumbles, totalCutMs } from '@dsh-video/core'
 
 const argv = process.argv.slice(2)
 const slug = argv.find((a) => !a.startsWith('--'))
@@ -56,16 +56,35 @@ if (fillersMode === 'cut') {
 } else {
   console.log('  mumbles: kept (--fillers keep)')
 }
+// --- timeline notes -------------------------------------------------------
+const notesPath = join(paths.edit, 'notes.jsonl')
+const storedNotes: Note[] = existsSync(notesPath)
+  ? (await readFile(notesPath, 'utf8')).split('\n').filter((l) => l.trim() !== '').map((l) => Note.parse(JSON.parse(l)))
+  : []
+
 const win = compactWindow(silence, fromMs, toMs, {
   pauseMs: 250,
   pauseRetainMs: PAUSE_RETAIN[pace],
-  extraCuts: mumbles.map((c) => [c.startMs, c.endMs] as [number, number]),
+  extraCuts: [
+    ...mumbles.map((c) => [c.startMs, c.endMs] as [number, number]),
+    // a 'cut this' note is a hand-placed removal, evaluated before the program is built
+    ...storedNotes.filter((n) => n.kind === 'cut' && n.status !== 'done').map((n) => [n.srcStartMs, n.srcEndMs] as [number, number]),
+  ],
 })
 if (win.regions.length === 0) {
   console.error(`no speech survived in ${opt('from')}–${opt('to')}: the window is empty, reversed, or entirely pause`)
   process.exit(2)
 }
 const words = shiftWords(transcript.words, win, fromMs, toMs)
+
+// --- notes → instructions -------------------------------------------------
+// Everything except 'cut' is mapped onto the program timeline here; 'cut' already went into the
+// window above, because a cut changes the timeline everything else is measured against.
+const applied = applyNotes(storedNotes, win)
+if (storedNotes.length > 0) {
+  console.log(`  notes: ${storedNotes.length} stored · ${applied.cutCount} cut · ${applied.captionSuppressed.length} hide-captions · ${applied.graphics.length} graphics · ${applied.unhandled.length} for the agent`)
+}
+for (const n of applied.unhandled) console.log(`    · needs the agent: "${n.text.slice(0, 70)}"`)
 const orientation = (opt('orientation', 'horizontal') as 'horizontal' | 'vertical')
 const background = (opt('background', 'none') as 'none' | 'blur' | 'studio')
 /** Vertical + a background treatment means "fit the whole frame", not "crop a strip out of it". */
@@ -163,12 +182,26 @@ if (orientation === 'vertical') {
     : `  reframe: ${W}x${H} · crop ${cropW}x${SRC_H} at x=${cropX} (median face x ${Math.round(medianFaceX)})`)
 }
 
-const pages = planCaptionPages(words, {
+// A 'no captions here' note removes the pages that overlap its program range, so the supplied
+// page plan is filtered before it is written.
+const rawPages = planCaptionPages(words, {
   frameWidth: W,
   style,
   targetWordsPerPage: captionMode === 'word' ? 1 : 3,
   place: { topPx, maxBottomPx: bottomSafe },
 })
+const pages = rawPages.filter((p) => !applied.captionSuppressed.some(([a, b]) => p.startMs < b && p.endMs > a))
+if (rawPages.length !== pages.length) {
+  console.log(`  captions: ${rawPages.length - pages.length} page(s) suppressed by notes`)
+}
+// A surviving page may not hold across a suppressed range: the hold exists to stop the screen
+// blinking between pages, not to paint over a window the user cleared.
+for (const page of pages) {
+  const stopsAt = applied.captionSuppressed
+    .filter(([a]) => a > page.startMs)
+    .reduce<number | undefined>((best, [a]) => (best === undefined || a < best ? a : best), undefined)
+  if (stopsAt !== undefined) page.holdUntilMs = stopsAt
+}
 void srcForProgram
 
 const assPath = join(paths.render, `${label}.ass`)
@@ -216,13 +249,16 @@ const graphicsTrack: GraphicsTrack = existsSync(graphicsPath)
   ? GraphicsTrack.parse(JSON.parse(await readFile(graphicsPath, 'utf8')))
   : EMPTY_GRAPHICS
 const graphicsRequested = opt('graphics', 'on') !== 'off'
-const graphicsOn = graphicsRequested && graphicsTrack.graphics.length > 0
-console.log(graphicsOn
-  ? `  graphics: ${graphicsTrack.graphics.length} item(s) from edit/graphics.json`
-  : `  graphics: none${existsSync(graphicsPath) ? ' (edit/graphics.json has no items)' : ' (no edit/graphics.json)'}`)
-
-const gplan = graphicsOn
-  ? planGraphics(graphicsTrack, 'vgbase', {
+// Notes can contribute graphics of their own (a text card, an image inset), so the track is the
+// file's items plus the notes' items, and the log says which is which.
+const combinedGraphics: GraphicsTrack = { schemaVersion: 1, graphics: [...graphicsTrack.graphics, ...applied.graphics] }
+const graphicsAny = combinedGraphics.graphics.length > 0
+const graphicsOn = graphicsRequested && graphicsAny
+console.log(graphicsAny && graphicsRequested
+  ? `  graphics: ${combinedGraphics.graphics.length} item(s) (${graphicsTrack.graphics.length} from edit/graphics.json, ${applied.graphics.length} from notes)`
+  : '  graphics: none')
+const gplan = graphicsAny && graphicsRequested
+  ? planGraphics(combinedGraphics, 'vgbase', {
       width: W,
       height: H,
       fontFamily: font.family,
@@ -304,6 +340,16 @@ await writeFile(metaPath, JSON.stringify({
   pace, pauseRetainMs: PAUSE_RETAIN[pace],
   voicePolish: !noVoice,
   programMs: win.programDurationMs,
+  // Source↔program map. The pane authors notes against program time; the server converts them to
+  // source time with this table so a later re-cut cannot move a note to another sentence.
+  regions: win.regions.map((r) => ({ srcStartMs: r.srcStartMs, srcEndMs: r.srcEndMs, progStartMs: r.progStartMs })),
+}, null, 2) + '\n')
+
+// The pane authors notes in program time and the server needs the map to convert them, so the
+// region table is published next to the render artifacts.
+await writeFile(join(paths.render, 'regions.json'), JSON.stringify({
+  label, fromMs, toMs, programMs: win.programDurationMs,
+  regions: win.regions.map((r) => ({ srcStartMs: r.srcStartMs, srcEndMs: r.srcEndMs, progStartMs: r.progStartMs })),
 }, null, 2) + '\n')
 
 const wall = (Date.now() - started) / 1000
