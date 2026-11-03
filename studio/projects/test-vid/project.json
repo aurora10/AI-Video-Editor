@@ -62,14 +62,14 @@
     "font": "oswald",
     "voicePolish": true,
     "pace": "calm",
-    "orientation": "vertical",
-    "background": "blur",
+    "orientation": "horizontal",
+    "background": "none",
     "graphics": "broll"
   },
   "lastRender": {
-    "file": "test-vid-deliverable.mp4",
-    "label": "deliverable",
-    "at": "2026-11-03T19:23:00.434Z",
+    "file": "test-vid-render-1793733899538.mp4",
+    "label": "render-1793733899538",
+    "at": "2026-11-03T19:25:31.467Z",
     "captions": "on",
     "settings": {
       "captions": "on",
@@ -77,8 +77,8 @@
       "font": "oswald",
       "voicePolish": true,
       "pace": "calm",
-      "orientation": "vertical",
-      "background": "blur",
+      "orientation": "horizontal",
+      "background": "none",
       "graphics": "broll"
     }
   }

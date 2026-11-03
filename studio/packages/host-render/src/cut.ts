@@ -38,16 +38,33 @@ export interface CompactOptions {
    * precedes it rather than becoming its own cut.
    */
   minSpeechMs?: number
+  /**
+   * Additional source spans to remove — mumbles, hesitations, false starts. Treated exactly like
+   * a pause, so pacing and word retiming follow automatically.
+   */
+  extraCuts?: [number, number][]
 }
 
 /** Build the pause-free program for the source window `[fromMs, toMs)`. */
 export function compactWindow(silence: SilenceMap, fromMs: number, toMs: number, opts: CompactOptions = {}): CompactedWindow {
   const pauseMs = opts.pauseMs ?? 250
-  const pauses = silence.regions
+  const pauseSpans = silence.regions
     .filter((r) => r.endMs > 0 && r.endMs - r.startMs >= pauseMs)
     .map((r) => [Math.max(fromMs, r.startMs), Math.min(toMs, r.endMs)] as [number, number])
     .filter(([a, b]) => b > a)
-    .sort((a, b) => a[0] - b[0])
+  // Mumbles are removed the same way as pauses, then merged so overlapping spans cannot
+  // produce a negative-length region.
+  const extra: [number, number][] = opts.extraCuts ?? []
+  const cutSpans = extra
+    .map(([a, b]) => [Math.max(fromMs, a), Math.min(toMs, b)] as [number, number])
+    .filter(([a, b]) => b > a)
+  const pauses = [...pauseSpans, ...cutSpans].sort((a, b) => a[0] - b[0])
+    .reduce<[number, number][]>((acc, span) => {
+      const last = acc[acc.length - 1]
+      if (last !== undefined && span[0] <= last[1]) last[1] = Math.max(last[1], span[1])
+      else acc.push([...span] as [number, number])
+      return acc
+    }, [])
 
   const minSpeechMs = opts.minSpeechMs ?? 200
   const retain = Math.max(0, opts.pauseRetainMs ?? 0)

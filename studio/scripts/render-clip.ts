@@ -11,7 +11,7 @@ import { join, resolve } from 'node:path'
 import { Transcript } from '@dsh-video/core'
 import { chinAt, detectFaces, detectSilence, projectPaths, refineWordTimings } from '../packages/host-ingest/src/index.js'
 import { compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, fitSizePx, planCaptionPages, planGraphics, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
-import { EMPTY_GRAPHICS, GraphicsTrack } from '@dsh-video/core'
+import { EMPTY_GRAPHICS, GraphicsTrack, detectMumbles, totalCutMs } from '@dsh-video/core'
 
 const argv = process.argv.slice(2)
 const slug = argv.find((a) => !a.startsWith('--'))
@@ -40,7 +40,27 @@ const { transcript } = refineWordTimings(raw, silence, src.durationMs)
 const pace = opt('pace', 'normal') as 'calm' | 'normal' | 'fast'
 // Measured on the reference cut: 0 ms reads as rushed jump cuts; ~220 ms lets a thought land.
 const PAUSE_RETAIN: Record<typeof pace, number> = { fast: 0, normal: 80, calm: 220 }
-const win = compactWindow(silence, fromMs, toMs, { pauseMs: 250, pauseRetainMs: PAUSE_RETAIN[pace] })
+// Mumbles: sound with no words, hesitations, isolated discourse markers, false starts.
+const fillersMode = opt('fillers', 'cut') as 'cut' | 'keep'
+const mumbles = fillersMode === 'cut'
+  ? detectMumbles(transcript.words, silence, src.durationMs)
+    .filter((c) => c.endMs > fromMs && c.startMs < toMs)
+  : []
+if (fillersMode === 'cut') {
+  const byReason = mumbles.reduce<Record<string, number>>((acc, c) => {
+    acc[c.reason] = (acc[c.reason] ?? 0) + (c.endMs - c.startMs)
+    return acc
+  }, {})
+  console.log(`  mumbles: ${mumbles.length} cut(s), ${(totalCutMs(mumbles) / 1000).toFixed(1)}s — ` +
+    Object.entries(byReason).map(([k, v]) => `${k} ${(v / 1000).toFixed(1)}s`).join(' · '))
+} else {
+  console.log('  mumbles: kept (--fillers keep)')
+}
+const win = compactWindow(silence, fromMs, toMs, {
+  pauseMs: 250,
+  pauseRetainMs: PAUSE_RETAIN[pace],
+  extraCuts: mumbles.map((c) => [c.startMs, c.endMs] as [number, number]),
+})
 if (win.regions.length === 0) {
   console.error(`no speech survived in ${opt('from')}–${opt('to')}: the window is empty, reversed, or entirely pause`)
   process.exit(2)

@@ -21,6 +21,8 @@ export interface RenderSettings {
   voicePolish: boolean
   /** Pacing profile — how much silence is retained between phrases. */
   pace: 'calm' | 'normal' | 'fast'
+  /** Remove mumbles: sound with no words, hesitations, isolated markers, false starts. */
+  mumbles: 'cut' | 'keep'
   /** Delivery orientation. */
   orientation: 'horizontal' | 'vertical'
   /** Background treatment behind the speaker. */
@@ -35,6 +37,7 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   font: 'inter',
   voicePolish: true,
   pace: 'normal',
+  mumbles: 'cut',
   orientation: 'vertical',
   background: 'blur',
   graphics: 'none',
@@ -62,6 +65,10 @@ export const OPTIONS: Record<keyof RenderSettings, OptionSpec[]> = {
     { value: 'calm', label: 'Calm (keeps a breath)', built: true },
     { value: 'normal', label: 'Normal', built: true },
     { value: 'fast', label: 'Fast (all pauses cut)', built: true },
+  ],
+  mumbles: [
+    { value: 'cut', label: 'Remove mumbles', built: true, note: 'sound with no words, hesitations, isolated "ну/вот/значит", false starts' },
+    { value: 'keep', label: 'Keep everything', built: true },
   ],
   orientation: [
     { value: 'horizontal', label: 'Horizontal 16:9', built: true },

@@ -72,6 +72,7 @@ const LABELS: Record<string, string> = {
   font: 'Font',
   voicePolish: 'Sound',
   pace: 'Pace',
+  mumbles: 'Mumbles',
   orientation: 'Format',
   background: 'Background',
   graphics: 'Graphics and B-roll',
