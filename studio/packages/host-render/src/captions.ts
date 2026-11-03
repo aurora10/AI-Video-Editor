@@ -141,14 +141,15 @@ export interface PlanOptions {
   /** Grouping target: words per page before width fitting. 2–5 reads well. */
   targetWordsPerPage?: number
   /**
-   * Per-page vertical placement, in pixels from the top of the frame.
+   * Horizontal/vertical placement for the whole run, in pixels from the top of the frame.
    *
-   * Supplied by the face track: captions go *below the chin*, and the room between the chin
-   * and the bottom safe line decides the font size. Measured on the reference clip, the chin
-   * sits at 66–78 % of frame height, leaving ~118 px — which is why the size must adapt
-   * per page instead of being a single global number.
+   * Deliberately COULD-BE-CONSTANT: typography must not move or resize between pages. An
+   * earlier version sized and placed each page from the chin at that instant, which made the
+   * type visibly change size as the speaker's head moved — the viewer reads that as a bug.
+   * The stable number comes from the median chin across the run (see render-clip), and pages
+   * adapt by carrying fewer words rather than by shrinking.
    */
-  place?: (page: { startMs: number; endMs: number }) => { topPx: number; maxBottomPx: number }
+  place?: { topPx: number; maxBottomPx: number }
 }
 
 /**
@@ -193,16 +194,7 @@ export function planCaptionPages(words: Word[], opts: PlanOptions): CaptionPage[
       const { lines, widthPx } = wrapLines(p, style, opts.frameWidth)
       const page: CaptionPage = { startMs: p[0]!.startMs, endMs: p[p.length - 1]!.endMs, words: p, lines, widthPx }
       if (opts.place === undefined) return page
-      const { topPx, maxBottomPx } = opts.place(page)
-      // Shrink until the block fits between the chin line and the bottom safe line.
-      const lineHeight = 1.18
-      let size = style.sizePx
-      const blockHeight = () => lines.length * size * lineHeight
-      const minSize = Math.round(style.sizePx * 0.55)
-      while (topPx + blockHeight() > maxBottomPx && size > minSize) size -= 2
-      // Re-fit the width for the size actually used, so shrinking never overflows sideways.
-      const scaled = wrapLines(p, { ...style, sizePx: size }, opts.frameWidth)
-      return { ...page, lines: scaled.lines, widthPx: scaled.widthPx, topPx, sizePx: size }
+      return { ...page, topPx: opts.place.topPx }
     })
 }
 
@@ -266,7 +258,9 @@ export function toAss(pages: CaptionPage[], opts: AssOptions): string {
       return page.words.map((w, i) => {
         const next = page.words[i + 1]
         const end = next === undefined ? pageEnd : next.startMs
-        const tag = `{\\fs${Math.round(size * 1.15)}}`
+        // no per-line size override: the page's size IS the style size, so the document
+        // carries exactly one font size and the type cannot drift between words
+        const tag = size === style.sizePx ? '' : `{\\fs${size}}`
         return `Dialogue: 0,${assTime(w.startMs)},${assTime(Math.max(end, w.endMs))},Cap,,0,0,${top},,${tag}${wordText(w, style)}`
       })
     }

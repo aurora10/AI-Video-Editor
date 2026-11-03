@@ -42,34 +42,56 @@ const [W, H] = probe.stdout.trim().split(',').map(Number) as [number, number]
 console.log(`\nrendering ${label}: ${opt('from')} → ${opt('to')} (source window ${((toMs - fromMs) / 1000).toFixed(1)}s)`)
 console.log(`  kept ${win.regions.length} speech regions · removed ${(win.removedMs / 1000).toFixed(1)}s of pause · program ${(win.programDurationMs / 1000).toFixed(1)}s`)
 
-// --- faces → where the chin is in program time ---------------------------
+// --- faces → one stable caption baseline for the whole clip --------------
 const faces = await detectFaces({ proxyPath: proxy, analysisDir: paths.analysis, srcId: src.id })
-const withFace = faces.samples.filter((s) => s.face !== undefined).length
 const gapPx = Math.round(H * 0.045)
 const bottomSafe = Math.round(H * 0.97)
-console.log(`  faces: ${withFace}/${faces.samples.length} sampled frames (${faces.detector.split(' ')[0]})`)
+
+// Median chin across the pages actually being shown (source time), not per frame: a
+// per-frame chin makes captions bob with the speaker's head, and — worse — makes the font
+// size differ between pages, which reads as a defect.
+const srcForProgram = (progMs: number): number => {
+  for (const r of win.regions) {
+    const len = r.srcEndMs - r.srcStartMs
+    if (progMs >= r.progStartMs && progMs < r.progStartMs + len) return r.srcStartMs + (progMs - r.progStartMs)
+  }
+  return win.regions[win.regions.length - 1]!.srcEndMs
+}
+const chins = faces.samples
+  .filter((s) => s.face !== undefined)
+  .map((s) => ({ atMs: s.atMs, chinY: s.face!.chinY }))
+  .filter((s) => {
+    const prog = s.atMs
+    return prog >= fromMs && prog < toMs
+  })
+  .map((s) => s.chinY)
+  .sort((a, b) => a - b)
+const medianChin = chins.length === 0 ? Math.round(H * 0.78) : Math.round(chins[Math.floor(chins.length / 2)]!)
+const topPx = Math.min(medianChin + gapPx, Math.round(H * 0.82))
 
 // --- captions -------------------------------------------------------------
-// One-word karaoke gets a larger face than a full phrase: there is only one line to fit
-// below the chin, so the ~118px band holds a big word comfortably.
+// One size for every page. The word-by-word read is one line, so the size is bounded by
+// the band below the chin; the phrase read also runs one line and takes fewer words instead
+// of shrinking.
+const bandPx = bottomSafe - topPx
+const maxSizeForBand = Math.floor(bandPx / 1.18)
+const baseSize = Math.round(H * (captionMode === 'word' ? 0.165 : 0.115))
 const style = {
   ...DEFAULT_CYRILLIC_CAPTION_STYLE,
-  sizePx: Math.round(H * (captionMode === 'word' ? 0.165 : 0.115)),
+  sizePx: Math.min(baseSize, maxSizeForBand),
   karaoke: captionMode,
+  maxLines: 1,
 }
+console.log(`  faces: ${chins.length} samples · median chin ${medianChin}px · captions at y=${topPx} · band ${bandPx}px · font ${style.sizePx}px`)
+
 const pages = planCaptionPages(words, {
   frameWidth: W,
   style,
-  targetWordsPerPage: 4,
-  // Source time for a program-time page, so the chin lookup uses the same clock as the face track.
-  place: (page) => {
-    const srcMs = fromMs + (win.regions.find((r) => page.startMs >= r.progStartMs && page.startMs < r.progStartMs + (r.srcEndMs - r.srcStartMs))
-      ? page.startMs - win.regions.find((r) => page.startMs >= r.progStartMs && page.startMs < r.progStartMs + (r.srcEndMs - r.srcStartMs))!.progStartMs + win.regions.find((r) => page.startMs >= r.progStartMs && page.startMs < r.progStartMs + (r.srcEndMs - r.srcStartMs))!.srcStartMs
-      : 0)
-    const chin = chinAt(faces, srcMs, H * 0.78)
-    return { topPx: Math.round(Math.min(chin + gapPx, H * 0.8)), maxBottomPx: bottomSafe }
-  },
+  targetWordsPerPage: captionMode === 'word' ? 1 : 3,
+  place: { topPx, maxBottomPx: bottomSafe },
 })
+void srcForProgram
+
 const assPath = join(paths.render, `${label}.ass`)
 // ffmpeg's filtergraph parser treats the path literally, but a workspace path with
 // spaces is a recurring source of "Invalid argument" — the burn copy lives in /tmp.
