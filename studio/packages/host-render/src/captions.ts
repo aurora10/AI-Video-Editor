@@ -32,8 +32,18 @@ export interface CaptionStyle {
   bottomInsetPct: number
   /** Hard cap; a page that would need more lines is split earlier instead. */
   maxLines: number
-  karaoke: 'none' | 'current' | 'trail'
+  /**
+   * `none`   — the whole phrase, plainly.
+   * `word`   — one word alone on screen at a time, large.
+   * `phrase` — the phrase stays visible and the *currently spoken* word is accented and
+   *            slightly enlarged (the short-form karaoke read).
+   */
+  karaoke: 'none' | 'word' | 'phrase'
   uppercase: boolean
+  /** Accent colour for the active word, ASS &HAABBGGRR. Default: yellow. */
+  accent?: string
+  /** Scale applied to the active word, percent. */
+  accentScalePct?: number
 }
 
 export const DEFAULT_CYRILLIC_CAPTION_STYLE: CaptionStyle = {
@@ -48,8 +58,10 @@ export const DEFAULT_CYRILLIC_CAPTION_STYLE: CaptionStyle = {
   maxWidthPct: 0.86,
   bottomInsetPct: 0.2,
   maxLines: 2,
-  karaoke: 'current',
+  karaoke: 'phrase',
   uppercase: false,
+  accent: '&H0000FFFF',
+  accentScalePct: 112,
 }
 
 /** Words that must not end a page: they belong to what follows. */
@@ -233,35 +245,62 @@ export function toAss(pages: CaptionPage[], opts: AssOptions): string {
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
   ]
 
-  const events = pages.map((page) => {
-    const shown = style.karaoke === 'none' ? page.lines.join('\\N') : rebuildKaraokeLines(page, { ...style, sizePx: page.sizePx ?? style.sizePx })
-    // \fs overrides the style size for pages that had to shrink below the chin.
-    const sizeTag = page.sizePx !== undefined && page.sizePx !== style.sizePx ? `{\\fs${page.sizePx}}` : ''
+  // A caption holds until the next one appears. Without this the screen goes blank between
+  // pages, which the eye reads as flicker; speech pauses are already removed from the
+  // program, so holding never covers dead air for long.
+  const displayEnd = (i: number): number => pages[i + 1]?.startMs ?? pages[i]!.endMs
+  const events = pages.flatMap((page, i) => {
+    const pageEnd = displayEnd(i)
+    const size = page.sizePx ?? style.sizePx
     const top = page.topPx === undefined ? marginV : Math.round(page.topPx)
-    // fields: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-    return `Dialogue: 0,${assTime(page.startMs)},${assTime(page.endMs)},Cap,,0,0,${top},,${sizeTag}${shown}`
+    const line = page.lines.join('\\N')
+
+    if (style.karaoke === 'none') {
+      return [`Dialogue: 0,${assTime(page.startMs)},${assTime(pageEnd)},Cap,,0,0,${top},,${size === style.sizePx ? '' : `{\\fs${size}}`}${line}`]
+    }
+
+    if (style.karaoke === 'word') {
+      // One word alone on screen. Each word HOLDS until the next one starts — cutting the
+      // dialogue at the word's own end leaves the screen empty between words, which reads
+      // as flicker rather than rhythm.
+      return page.words.map((w, i) => {
+        const next = page.words[i + 1]
+        const end = next === undefined ? pageEnd : next.startMs
+        const tag = `{\\fs${Math.round(size * 1.15)}}`
+        return `Dialogue: 0,${assTime(w.startMs)},${assTime(Math.max(end, w.endMs))},Cap,,0,0,${top},,${tag}${wordText(w, style)}`
+      })
+    }
+
+    // 'phrase': the whole phrase stays up; only the active word is accented and enlarged.
+    // One dialogue per word state — the redraw is what makes the accent move.
+    const accent = style.accent ?? '&H0000FFFF'
+    const scale = style.accentScalePct ?? 112
+    const states: { startMs: number; endMs: number; active: number }[] = []
+    page.words.forEach((w, k) => states.push({ startMs: w.startMs, endMs: w.endMs, active: k }))
+    // Fill the gaps between words so the phrase never blinks out.
+    for (let i = 0; i < page.words.length - 1; i++) {
+      const gapStart = page.words[i]!.endMs
+      const gapEnd = page.words[i + 1]!.startMs
+      if (gapEnd - gapStart > 20) states.push({ startMs: gapStart, endMs: gapEnd, active: i })
+    }
+    // the final word-state holds to the next page
+    const lastState = states[states.length - 1]
+    if (lastState !== undefined) lastState.endMs = Math.max(lastState.endMs, pageEnd)
+    states.sort((a, b) => a.startMs - b.startMs)
+
+    return states.map(({ startMs, endMs, active }) => {
+      const text = page.words
+        .map((w, i) => {
+          const word = wordText(w, style)
+          if (i === active) return `{\\c${accent}\\fscx${scale}\\fscy${scale}}${word}{\\c${style.primary}\\fscx100\\fscy100}`
+          return word
+        })
+        .join(' ')
+      const sizeTag = size === style.sizePx ? '' : `{\\fs${size}}`
+      return `Dialogue: 0,${assTime(startMs)},${assTime(endMs)},Cap,,0,0,${top},,${sizeTag}${text}`
+    })
   })
 
   return [...header, ...events].join('\n') + '\n'
 }
 
-/** Karaoke text that preserves the authored line breaks. */
-function rebuildKaraokeLines(page: CaptionPage, style: CaptionStyle): string {
-  const perLine: Word[][] = []
-  let index = 0
-  for (const line of page.lines) {
-    const count = line.split(' ').filter(Boolean).length
-    perLine.push(page.words.slice(index, index + count))
-    index += count
-  }
-  return perLine
-    .map((words) =>
-      words
-        .map((w) => {
-          const cs = Math.max(1, Math.round((w.endMs - w.startMs) / 10))
-          return `{\\k${cs}}${wordText(w, style)}`
-        })
-        .join(' '),
-    )
-    .join('\\N')
-}

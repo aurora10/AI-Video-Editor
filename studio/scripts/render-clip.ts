@@ -21,6 +21,7 @@ const fromMs = mmss(opt('from', '0:00')!)
 const toMs = mmss(opt('to', '0:45')!)
 const label = opt('label', 'clip')!
 const withCaptions = !argv.includes('--no-captions')
+const captionMode = (opt('captions', 'phrase') as 'none' | 'word' | 'phrase')
 
 const paths = projectPaths(resolve('projects', slug))
 const record = JSON.parse(await readFile(paths.record, 'utf8'))
@@ -49,7 +50,13 @@ const bottomSafe = Math.round(H * 0.97)
 console.log(`  faces: ${withFace}/${faces.samples.length} sampled frames (${faces.detector.split(' ')[0]})`)
 
 // --- captions -------------------------------------------------------------
-const style = { ...DEFAULT_CYRILLIC_CAPTION_STYLE, sizePx: Math.round(H * 0.115) }
+// One-word karaoke gets a larger face than a full phrase: there is only one line to fit
+// below the chin, so the ~118px band holds a big word comfortably.
+const style = {
+  ...DEFAULT_CYRILLIC_CAPTION_STYLE,
+  sizePx: Math.round(H * (captionMode === 'word' ? 0.165 : 0.115)),
+  karaoke: captionMode,
+}
 const pages = planCaptionPages(words, {
   frameWidth: W,
   style,
