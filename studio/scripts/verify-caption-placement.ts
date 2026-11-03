@@ -10,6 +10,7 @@
  * This is the difference between "captions look fine" and "captions were never on the face".
  */
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
 import { spawnSync } from 'node:child_process'
 import { join, resolve } from 'node:path'
 import { Transcript } from '@dsh-video/core'
@@ -30,7 +31,36 @@ if (slug === undefined || clipArg === undefined || controlArg === undefined) {
 const opt = (n: string, d: string) => { const i = argv.indexOf(`--${n}`); return i === -1 ? d : argv[i + 1]! }
 const mmss = (v: string) => { const [m, s] = v.split(':'); return (Math.round(Number(m) * 60 + Number(s))) * 1000 }
 
-const W = 960, H = 540
+let W = 0
+let H = 0
+
+// Dimensions come from the clip itself: the vertical render is 540x960, and a hardcoded
+// landscape size silently mis-measures every frame of it.
+{
+  const probeDims = spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', clipArg], { encoding: 'utf8' })
+  const parts = probeDims.stdout.trim().split(',').map(Number)
+  W = parts[0] ?? 0
+  H = parts[1] ?? 0
+  if (W === 0 || H === 0) { console.error(`cannot read dimensions of ${clipArg}`); process.exit(2) }
+}
+
+// Map a face box from source coordinates into the delivered frame using the render's own
+// geometry sidecar. Without this, a vertical render was compared against landscape boxes and
+// reported a clean result it had not earned.
+interface RenderMeta { source: { width: number; height: number }; output: { width: number; height: number }; crop: { x: number; w: number; h: number } | null }
+const metaPath = clipArg.replace(/\.mp4$/, '.meta.json')
+const meta: RenderMeta | null = existsSync(metaPath) ? JSON.parse(await readFile(metaPath, 'utf8')) as RenderMeta : null
+if (meta === null) {
+  console.error(`missing geometry sidecar ${metaPath} — re-render the clip so the verifier can map coordinates`)
+  process.exit(2)
+}
+const toOutput = (box: { x: number; y: number; w: number; h: number }) => {
+  const sx = meta.output.width / (meta.crop === null ? meta.source.width : meta.crop.w)
+  const sy = meta.output.height / meta.source.height
+  const x0 = meta.crop === null ? box.x : box.x - meta.crop.x
+  return { x: x0 * sx, y: box.y * sy, w: box.w * sx, h: box.h * sy }
+}
+
 const paths = projectPaths(resolve('projects', slug))
 const record = JSON.parse(await readFile(paths.record, 'utf8'))
 const src = record.sources[0]
@@ -58,6 +88,7 @@ const toSource = (progMs: number): number => {
 }
 
 const sampleCount = 12
+let skipped = 0
 let totalCaptionPixels = 0
 let insideFace = 0
 let framesWithCaption = 0
@@ -67,7 +98,7 @@ for (let i = 0; i < sampleCount; i++) {
   const srcMs = toSource(progMs)
   const a = gray(clipArg, progMs / 1000)
   const b = gray(controlArg, progMs / 1000)
-  if (a.length !== W * H || b.length !== W * H) { console.log(`  t=${(progMs / 1000).toFixed(1)}s  frame decode mismatch, skipped`); continue }
+  if (a.length !== W * H || b.length !== W * H) { skipped++; console.log(`  t=${(progMs / 1000).toFixed(1)}s  frame decode mismatch (${a.length}/${W * H}), skipped`); continue }
 
   const face = faces.samples.filter((s) => s.face !== undefined)
     .reduce((best, s) => (best === undefined || Math.abs(s.atMs - srcMs) < Math.abs(best.atMs - srcMs) ? s : best), undefined as typeof faces.samples[number] | undefined)?.face
@@ -80,18 +111,30 @@ for (let i = 0; i < sampleCount; i++) {
         captionPx++
         if (y < minY) minY = y
         if (y > maxY) maxY = y
-        if (face !== undefined && x >= face.x && x <= face.x + face.w && y >= face.y && y <= face.y + face.h) inside++
+        if (face !== undefined) {
+          const f = toOutput(face)
+          if (x >= f.x && x <= f.x + f.w && y >= f.y && y <= f.y + f.h) inside++
+        }
       }
     }
   }
   totalCaptionPixels += captionPx
   insideFace += inside
   if (captionPx > 50) framesWithCaption++
-  const faceTxt = face === undefined ? 'no face' : `face y ${face.y.toFixed(0)}–${(face.y + face.h).toFixed(0)}`
+  const mapped = face === undefined ? null : toOutput(face)
+  const faceTxt = mapped === null ? 'no face' : `face y ${mapped.y.toFixed(0)}–${(mapped.y + mapped.h).toFixed(0)}`
   const capTxt = captionPx > 50 ? `caption y ${minY}–${maxY}` : 'no caption visible'
   const verdict = inside > 0 ? `✘ ${inside} px ON FACE` : '✔'
   console.log(`  t=${(progMs / 1000).toFixed(1).padStart(5)}s  ${faceTxt.padEnd(18)} ${capTxt.padEnd(20)} ${verdict}`)
 }
-console.log(`\n  frames with captions: ${framesWithCaption}/${sampleCount} · caption pixels ${totalCaptionPixels} · pixels over a face: ${insideFace}`)
-console.log(`  ${insideFace === 0 ? 'PASS — captions never cover the face' : 'FAIL — captions overlap the face'}\n`)
-process.exit(insideFace === 0 ? 0 : 1)
+const measured = sampleCount - skipped
+console.log(`\n  measured ${measured}/${sampleCount} frames · with captions ${framesWithCaption} · caption pixels ${totalCaptionPixels} · over a face ${insideFace}`)
+if (measured === 0 || framesWithCaption === 0) {
+  // Nothing was actually compared: reporting PASS here would be a lie, and it happened once
+  // (the clip's dimensions were mis-probed, every frame was skipped, and the run went green).
+  console.log('  INCONCLUSIVE — no frames could be compared ✘\n')
+  process.exit(1)
+}
+const ok = insideFace === 0
+console.log(`  ${ok ? 'PASS — captions never cover the face' : 'FAIL — captions overlap the face'}\n`)
+process.exit(ok ? 0 : 1)

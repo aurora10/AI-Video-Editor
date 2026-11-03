@@ -1,0 +1,28 @@
+{
+  "label": "vertical-nocaps",
+  "fromMs": 287000,
+  "toMs": 347000,
+  "orientation": "vertical",
+  "source": {
+    "width": 960,
+    "height": 540
+  },
+  "output": {
+    "width": 540,
+    "height": 960
+  },
+  "crop": {
+    "x": 375,
+    "w": 304,
+    "h": 540
+  },
+  "scale": {
+    "x": 1.7763157894736843,
+    "y": 1.7777777777777777
+  },
+  "captions": null,
+  "pace": "normal",
+  "pauseRetainMs": 80,
+  "voicePolish": true,
+  "programMs": 55887
+}

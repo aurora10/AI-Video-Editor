@@ -59,9 +59,9 @@
   "settings": {
     "captions": true,
     "captionStyle": "word",
-    "font": "arial-bold",
+    "font": "oswald",
     "voicePolish": true,
-    "pace": "normal",
+    "pace": "calm",
     "orientation": "horizontal",
     "background": "none",
     "graphics": "none"

@@ -26,6 +26,13 @@ export interface CompactOptions {
   /** Pauses at least this long are removed. */
   pauseMs?: number
   /**
+   * Milliseconds of each pause to keep as breathing room.
+   *
+   * Zero gives the tightest cut (a jump cut on every pause, which reads as rushed); a couple of
+   * hundred milliseconds lets the viewer land between thoughts. This is the "pace" setting.
+   */
+  pauseRetainMs?: number
+  /**
    * A kept region shorter than this is not speech worth keeping: it is detector noise
    * (measured: one region came out at 39 ms). Such a sliver is merged into whatever
    * precedes it rather than becoming its own cut.
@@ -43,26 +50,34 @@ export function compactWindow(silence: SilenceMap, fromMs: number, toMs: number,
     .sort((a, b) => a[0] - b[0])
 
   const minSpeechMs = opts.minSpeechMs ?? 200
-  const spans: [number, number][] = []
+  const retain = Math.max(0, opts.pauseRetainMs ?? 0)
+
+  // 1. speech spans = everything that is not a pause
+  const rawSpans: [number, number][] = []
   let cursor = fromMs
   for (const [a, b] of pauses) {
-    if (a > cursor) spans.push([cursor, a])
+    if (a > cursor) rawSpans.push([cursor, a])
     cursor = Math.max(cursor, b)
   }
-  if (cursor < toMs) spans.push([cursor, toMs])
+  if (cursor < toMs) rawSpans.push([cursor, toMs])
 
-  // Merge slivers into the preceding span; a leading sliver extends forward instead.
-  const kept: [number, number][] = []
-  for (const span of spans) {
-    const prev = kept[kept.length - 1]
-    if (span[1] - span[0] < minSpeechMs) {
-      if (prev !== undefined) prev[1] = span[1]
-      else kept.push([Math.max(fromMs, span[0]), span[1]])
-      continue
-    }
-    if (prev !== undefined && span[0] - prev[1] < minSpeechMs) { prev[1] = span[1]; continue }
-    kept.push([...span] as [number, number])
+  // 2. drop detector noise: a span shorter than minSpeechMs merges into its predecessor
+  const merged: [number, number][] = []
+  for (const span of rawSpans) {
+    const prev = merged[merged.length - 1]
+    if (span[1] - span[0] < minSpeechMs && prev !== undefined) { prev[1] = span[1]; continue }
+    merged.push([...span] as [number, number])
   }
+
+  // 3. pacing: extend each span's tail into the following pause, never past the midpoint of that
+  //    gap. Done AFTER merging, so the breath cannot be swallowed by the sliver rule — doing it
+  //    first made "calm" shorter than "normal", which is how this was caught.
+  const kept: [number, number][] = merged.map((span, i) => {
+    const next = merged[i + 1]
+    if (next === undefined || retain === 0) return span
+    const gap = next[0] - span[1]
+    return [span[0], span[1] + Math.min(retain, gap / 2)]
+  })
 
   const regions: KeptRegion[] = []
   let program = 0

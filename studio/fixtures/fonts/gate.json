@@ -1,0 +1,47 @@
+{
+  "generatedAt": "2026-11-03T18:27:01.090Z",
+  "results": [
+    {
+      "key": "inter",
+      "family": "Inter",
+      "ok": true,
+      "why": "draws Cyrillic",
+      "psnr": 11.782419
+    },
+    {
+      "key": "manrope",
+      "family": "Manrope",
+      "ok": true,
+      "why": "draws Cyrillic",
+      "psnr": 14.400901
+    },
+    {
+      "key": "oswald",
+      "family": "Oswald",
+      "ok": true,
+      "why": "draws Cyrillic",
+      "psnr": 10.449728
+    },
+    {
+      "key": "montserrat",
+      "family": "Montserrat",
+      "ok": true,
+      "why": "draws Cyrillic",
+      "psnr": 18.618398
+    },
+    {
+      "key": "bebas",
+      "family": "Bebas Neue",
+      "ok": true,
+      "why": "draws Cyrillic",
+      "psnr": 12.0685
+    }
+  ],
+  "usable": [
+    "inter",
+    "manrope",
+    "oswald",
+    "montserrat",
+    "bebas"
+  ]
+}

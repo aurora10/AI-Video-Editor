@@ -8,6 +8,7 @@
  */
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { FONT_LIBRARY } from '@dsh-video/core'
 
 export interface RenderSettings {
   /** Captions shown at all. */
@@ -31,7 +32,7 @@ export interface RenderSettings {
 export const DEFAULT_SETTINGS: RenderSettings = {
   captions: true,
   captionStyle: 'word',
-  font: 'arial-bold',
+  font: 'inter',
   voicePolish: true,
   pace: 'normal',
   orientation: 'horizontal',
@@ -54,20 +55,17 @@ export const OPTIONS: Record<keyof RenderSettings, OptionSpec[]> = {
     { value: 'phrase', label: 'Phrase, active word highlighted', built: true },
     { value: 'plain', label: 'Plain block', built: true },
   ],
-  font: [
-    { value: 'arial-bold', label: 'Arial Bold (Cyrillic ok)', built: true, note: 'placeholder face — licensed, not shippable' },
-    { value: 'inter', label: 'Inter', built: false, note: 'downloading + coverage check in progress' },
-    { value: 'manrope', label: 'Manrope', built: false, note: 'not added yet' },
-  ],
+  // One entry per bundled face that passed the Cyrillic coverage gate.
+  font: FONT_LIBRARY.map((f) => ({ value: f.key, label: f.label, built: true })),
   voicePolish: [{ value: 'on', label: 'Voice polish', built: true }, { value: 'off', label: 'Raw audio', built: true }],
   pace: [
-    { value: 'calm', label: 'Calm', built: false, note: 'pacing profiles not implemented yet' },
+    { value: 'calm', label: 'Calm (keeps a breath)', built: true },
     { value: 'normal', label: 'Normal', built: true },
     { value: 'fast', label: 'Fast (all pauses cut)', built: true },
   ],
   orientation: [
     { value: 'horizontal', label: 'Horizontal 16:9', built: true },
-    { value: 'vertical', label: 'Vertical 9:16', built: false, note: 'face-following crop not wired yet' },
+    { value: 'vertical', label: 'Vertical 9:16', built: true, note: 'crop follows the median face position' },
   ],
   background: [
     { value: 'none', label: 'No background', built: true },
