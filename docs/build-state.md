@@ -84,6 +84,37 @@ Last updated: session 6 — **first end-to-end cut rendered and verified.** Prox
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## Outside review, and what it caught (session 8)
+
+Acting on the gstack conversation's one useful idea, a **fresh agent with no context reviewed the
+diff**. It found a **critical** defect plus seven more, all now fixed and verified
+(`b0c50d5`):
+
+| # | Defect | Why it mattered |
+|---|---|---|
+| 1 | **critical** — a degenerate edit window produced an *empty* `select` expression, which ffmpeg treats as "select everything" | the renderer re-encoded the whole 480 s source, exited 0 and printed ✔. Reproduced by the reviewer, not theorised |
+| 2 | one-word captions bypassed width fitting | 158 px type in a 540 px frame was clipped at both edges while the face gate passed |
+| 3 | verifier rebuilt the timeline without the render's pace | face looked up up to 1.4 s from the frame under test |
+| 4 | studio grade ran *after* the caption burn | type dimmed and vignetted (peak 225 → 255 after the fix) |
+| 5 | background accepted and shown as selected, but a no-op for horizontal | a switch that lied; defaults changed to vertical+blur and the impossible combination is refused |
+| 6 | face box from seconds away counted as evidence | a run could PASS with no face data; now 500 ms window + INCONCLUSIVE |
+| 7 | render job could stay "running" for ever | no spawn-error listener, no timeout; added error handling + 15 min watchdog + eviction |
+| 8 | `voicePolish` was a control that lied | renderer hardcoded it true; now honoured |
+
+**The lesson worth writing down:** my own gates were passing while the output was wrong. Every one of
+these was a *plausible* diff, and the measurement gates I built did not catch them because they
+checked the wrong invariant. A reviewer with no stake caught what my tests were blind to.
+
+## Background treatment (session 8)
+
+Vertical delivery now **fits the whole frame over a blurred copy of itself** instead of cropping a
+9:16 strip out of it. Cropping kept only ~32 % of the frame's width — losing the room and half of a
+seated speaker's gesture. No subject matte is needed, so no halos around hair or hands.
+
+Verified numerically: band sharpness in the fitted centre measures **4.11** against **0.03** in the
+blurred padding (crop renders measure 0.61 in the same band, i.e. real image content), and captions
+still clear the face on 12/12 frames with no edge clipping.
+
 ## Studio pane v1 is live (session 7)
 
 The owner asked whether the GUI pane is coming. It is the product, so it moved to the front and a
