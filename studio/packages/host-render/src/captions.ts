@@ -89,6 +89,10 @@ export interface CaptionPage {
   words: Word[]
   lines: string[]
   widthPx: number
+  /** Pixels from the top of the frame to the first line, after face-aware placement. */
+  topPx?: number
+  /** Font size actually used for this page, when it had to shrink to fit below the chin. */
+  sizePx?: number
 }
 
 const wordText = (w: Word, style: CaptionStyle): string => (style.uppercase ? w.text.toUpperCase() : w.text)
@@ -124,6 +128,15 @@ export interface PlanOptions {
   style?: CaptionStyle
   /** Grouping target: words per page before width fitting. 2–5 reads well. */
   targetWordsPerPage?: number
+  /**
+   * Per-page vertical placement, in pixels from the top of the frame.
+   *
+   * Supplied by the face track: captions go *below the chin*, and the room between the chin
+   * and the bottom safe line decides the font size. Measured on the reference clip, the chin
+   * sits at 66–78 % of frame height, leaving ~118 px — which is why the size must adapt
+   * per page instead of being a single global number.
+   */
+  place?: (page: { startMs: number; endMs: number }) => { topPx: number; maxBottomPx: number }
 }
 
 /**
@@ -166,7 +179,18 @@ export function planCaptionPages(words: Word[], opts: PlanOptions): CaptionPage[
     .filter((p) => p.length > 0)
     .map((p) => {
       const { lines, widthPx } = wrapLines(p, style, opts.frameWidth)
-      return { startMs: p[0]!.startMs, endMs: p[p.length - 1]!.endMs, words: p, lines, widthPx }
+      const page: CaptionPage = { startMs: p[0]!.startMs, endMs: p[p.length - 1]!.endMs, words: p, lines, widthPx }
+      if (opts.place === undefined) return page
+      const { topPx, maxBottomPx } = opts.place(page)
+      // Shrink until the block fits between the chin line and the bottom safe line.
+      const lineHeight = 1.18
+      let size = style.sizePx
+      const blockHeight = () => lines.length * size * lineHeight
+      const minSize = Math.round(style.sizePx * 0.55)
+      while (topPx + blockHeight() > maxBottomPx && size > minSize) size -= 2
+      // Re-fit the width for the size actually used, so shrinking never overflows sideways.
+      const scaled = wrapLines(p, { ...style, sizePx: size }, opts.frameWidth)
+      return { ...page, lines: scaled.lines, widthPx: scaled.widthPx, topPx, sizePx: size }
     })
 }
 
@@ -201,15 +225,21 @@ export function toAss(pages: CaptionPage[], opts: AssOptions): string {
     '',
     '[V4+ Styles]',
     'Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding',
-    `Style: Cap,${style.fontFamily},${style.sizePx},${style.primary},&H000000FF,${style.outline},&H64000000,${style.bold ? -1 : 0},0,0,0,100,100,0,0,1,${style.outlinePx},${style.shadowPx},2,40,40,${marginV},1`,
+    // Alignment 8 = top-center: pages grow downward from an explicit top, so a face-anchored
+    // position is exact instead of inferred from the bottom margin.
+    `Style: Cap,${style.fontFamily},${style.sizePx},${style.primary},&H000000FF,${style.outline},&H64000000,${style.bold ? -1 : 0},0,0,0,100,100,0,0,1,${style.outlinePx},${style.shadowPx},8,40,40,${marginV},1`,
     '',
     '[Events]',
     'Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text',
   ]
 
   const events = pages.map((page) => {
-    const shown = style.karaoke === 'none' ? page.lines.join('\\N') : rebuildKaraokeLines(page, style)
-    return `Dialogue: 0,${assTime(page.startMs)},${assTime(page.endMs)},Cap,,0,0,0,,${shown}`
+    const shown = style.karaoke === 'none' ? page.lines.join('\\N') : rebuildKaraokeLines(page, { ...style, sizePx: page.sizePx ?? style.sizePx })
+    // \fs overrides the style size for pages that had to shrink below the chin.
+    const sizeTag = page.sizePx !== undefined && page.sizePx !== style.sizePx ? `{\\fs${page.sizePx}}` : ''
+    const top = page.topPx === undefined ? marginV : Math.round(page.topPx)
+    // fields: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+    return `Dialogue: 0,${assTime(page.startMs)},${assTime(page.endMs)},Cap,,0,0,${top},,${sizeTag}${shown}`
   })
 
   return [...header, ...events].join('\n') + '\n'

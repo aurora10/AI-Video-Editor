@@ -19,7 +19,8 @@
     "cut-plan": "tsx scripts/cut-plan.ts",
     "verify-captions": "tsx scripts/verify-captions.ts",
     "render-clip": "tsx scripts/render-clip.ts",
-    "measure-audio": "tsx scripts/measure-audio.ts"
+    "measure-audio": "tsx scripts/measure-audio.ts",
+    "verify-caption-placement": "tsx scripts/verify-caption-placement.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
