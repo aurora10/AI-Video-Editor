@@ -115,11 +115,18 @@ const topPx = Math.min(medianChin + gapPx, Math.round(H * 0.82))
 const bandPx = bottomSafe - topPx
 const maxSizeForBand = Math.floor(bandPx / 1.18)
 const baseSize = Math.round(H * (captionMode === 'word' ? 0.165 : 0.115))
-// Two independent limits: the vertical band below the chin, and the horizontal budget for the
-// longest word that will appear. Without the second, a 158px word overflowed a 540px frame.
-const longestWord = words.reduce((a, w) => (w.text.length > a.length ? w.text : a), '')
+// Two limits: the band below the chin, and the horizontal budget.
+//
+// The width limit is taken from the 90th-percentile word, not the longest. Sizing for the single
+// longest word (15 letters here) collapsed the type from 158px to 65px for every caption in the
+// clip; sizing for the typical word keeps the intended look and lets `planCaptionPages` shrink
+// only the rare page that would otherwise overflow. A long word occasionally being a little
+// smaller is ordinary typography; every word being small is a bad result.
+const sizes = words.map((w) => w.text.length).sort((a, b) => a - b)
+const typicalLength = sizes.length === 0 ? 0 : sizes[Math.min(sizes.length - 1, Math.floor(sizes.length * 0.9))]!
+const typicalWord = 'Х'.repeat(Math.max(4, typicalLength))
 const probeStyle = { ...DEFAULT_CYRILLIC_CAPTION_STYLE, fontFamily: font.family, fontDir: font.dir, sizePx: baseSize }
-const maxSizeForWidth = fitSizePx(longestWord, probeStyle, W * DEFAULT_CYRILLIC_CAPTION_STYLE.maxWidthPct)
+const maxSizeForWidth = fitSizePx(typicalWord, probeStyle, W * DEFAULT_CYRILLIC_CAPTION_STYLE.maxWidthPct)
 const style = {
   ...DEFAULT_CYRILLIC_CAPTION_STYLE,
   fontFamily: font.family,

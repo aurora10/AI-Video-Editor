@@ -204,8 +204,20 @@ export function planCaptionPages(words: Word[], opts: PlanOptions): CaptionPage[
   return pages
     .filter((p) => p.length > 0)
     .map((p) => {
-      const { lines, widthPx } = wrapLines(p, style, opts.frameWidth)
+      let { lines, widthPx } = wrapLines(p, style, opts.frameWidth)
       const page: CaptionPage = { startMs: p[0]!.startMs, endMs: p[p.length - 1]!.endMs, words: p, lines, widthPx }
+      // Overflow protection per page: shrink just this page rather than clip it at the frame edge.
+      const budget = opts.frameWidth * style.maxWidthPct
+      if (widthPx > budget) {
+        const text = p.map((w) => wordText(w, style)).join(' ')
+        const smaller = fitSizePx(text, style, budget)
+        const refit = wrapLines(p, { ...style, sizePx: smaller }, opts.frameWidth)
+        if (refit.widthPx <= budget) {
+          lines = refit.lines
+          widthPx = refit.widthPx
+          page.sizePx = smaller
+        }
+      }
       if (opts.place === undefined) return page
       return { ...page, topPx: opts.place.topPx }
     })
