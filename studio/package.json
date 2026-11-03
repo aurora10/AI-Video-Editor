@@ -18,7 +18,8 @@
     "qa-transcript": "tsx scripts/qa-transcript.ts",
     "cut-plan": "tsx scripts/cut-plan.ts",
     "verify-captions": "tsx scripts/verify-captions.ts",
-    "render-clip": "tsx scripts/render-clip.ts"
+    "render-clip": "tsx scripts/render-clip.ts",
+    "measure-audio": "tsx scripts/measure-audio.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

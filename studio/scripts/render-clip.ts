@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { Transcript } from '@dsh-video/core'
 import { detectSilence, projectPaths, refineWordTimings } from '../packages/host-ingest/src/index.js'
-import { compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, planCaptionPages, shiftWords, toAss } from '../packages/host-render/src/index.js'
+import { compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, planCaptionPages, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
 
 const argv = process.argv.slice(2)
 const slug = argv.find((a) => !a.startsWith('--'))
@@ -57,6 +57,8 @@ const outDir = resolve('out')
 await mkdir(outDir, { recursive: true })
 const outPath = join(outDir, `${slug}-${label}.mp4`)
 const sel = compactSelectExpr(win)
+const voice = voicePolishChain()
+console.log(`  voice: ${voice.description}`)
 // loudnorm normalises AUDIO; burning captions is a VIDEO filter. Keeping them on their
 // own streams is not stylistic — mixing them up is an ffmpeg error.
 // The proxy is video-only on purpose: audio is extracted separately for ASR and mixing,
@@ -64,7 +66,7 @@ const sel = compactSelectExpr(win)
 // Both share the source timeline, so one between() expression addresses both.
 const filter = [
   `[0:v]select='${sel}',setpts=N/FRAME_RATE/TB,ass=${burnAssPath}:fontsdir=${style.fontDir}[outv]`,
-  `[1:a]aselect='${sel}',asetpts=N/SR/TB,loudnorm=I=-14:TP=-1:LRA=11[outa]`,
+  `[1:a]aselect='${sel}',asetpts=N/SR/TB,${voice.filters}[outa]`,
 ].join(';')
 
 const started = Date.now()
