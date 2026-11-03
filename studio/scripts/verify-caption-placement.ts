@@ -47,18 +47,31 @@ let H = 0
 // Map a face box from source coordinates into the delivered frame using the render's own
 // geometry sidecar. Without this, a vertical render was compared against landscape boxes and
 // reported a clean result it had not earned.
-interface RenderMeta { source: { width: number; height: number }; output: { width: number; height: number }; crop: { x: number; w: number; h: number } | null }
+interface RenderMeta {
+  source: { width: number; height: number }
+  output: { width: number; height: number }
+  transform?: { sx: number; sy: number; ox: number; oy: number }
+  treatment?: string
+  fromMs?: number
+  toMs?: number
+  pace?: string
+  pauseRetainMs?: number
+}
 const metaPath = clipArg.replace(/\.mp4$/, '.meta.json')
 const meta: RenderMeta | null = existsSync(metaPath) ? JSON.parse(await readFile(metaPath, 'utf8')) as RenderMeta : null
 if (meta === null) {
   console.error(`missing geometry sidecar ${metaPath} — re-render the clip so the verifier can map coordinates`)
   process.exit(2)
 }
+if (meta.transform === undefined) {
+  console.error(`${metaPath} predates the transform field (rendered before the fill-mode fix) — re-render the clip`)
+  process.exit(2)
+}
+// The render records its own transform (crop or fit-plus-blur), so the verifier cannot invent a
+// mapping that disagrees with what ffmpeg actually did.
 const toOutput = (box: { x: number; y: number; w: number; h: number }) => {
-  const sx = meta.output.width / (meta.crop === null ? meta.source.width : meta.crop.w)
-  const sy = meta.output.height / meta.source.height
-  const x0 = meta.crop === null ? box.x : box.x - meta.crop.x
-  return { x: x0 * sx, y: box.y * sy, w: box.w * sx, h: box.h * sy }
+  const { sx, sy, ox, oy } = meta.transform!
+  return { x: ox + box.x * sx, y: oy + box.y * sy, w: box.w * sx, h: box.h * sy }
 }
 
 const paths = projectPaths(resolve('projects', slug))
@@ -68,7 +81,11 @@ const raw = Transcript.parse(JSON.parse(await readFile(join(paths.analysis, `tra
 const silence = await detectSilence(src.proxies.audio, src.id)
 const { transcript } = refineWordTimings(raw, silence, src.durationMs)
 void transcript
-const win = compactWindow(silence, mmss(opt('from', '4:47')), mmss(opt('to', '5:47')), { pauseMs: 250 })
+// The render's own window and pacing, read from its sidecar. Rebuilding the timeline with
+// different defaults put the face lookup up to 1.4 s away from the frame being checked.
+const winFrom = meta.fromMs ?? mmss(opt('from', '4:47'))
+const winTo = meta.toMs ?? mmss(opt('to', '5:47'))
+const win = compactWindow(silence, winFrom, winTo, { pauseMs: 250, ...(meta.pauseRetainMs === undefined ? {} : { pauseRetainMs: meta.pauseRetainMs }) })
 const faces = await detectFaces({ proxyPath: src.proxies.preview, analysisDir: paths.analysis, srcId: src.id })
 
 const gray = (file: string, ss: number): Uint8Array => {
@@ -90,6 +107,8 @@ const toSource = (progMs: number): number => {
 const sampleCount = 12
 let skipped = 0
 let totalCaptionPixels = 0
+let facesWithEvidence = 0
+let clippedFrames = 0
 let insideFace = 0
 let framesWithCaption = 0
 console.log(`\ncaption placement — ${slug} · ${clipArg}\n`)
@@ -100,10 +119,14 @@ for (let i = 0; i < sampleCount; i++) {
   const b = gray(controlArg, progMs / 1000)
   if (a.length !== W * H || b.length !== W * H) { skipped++; console.log(`  t=${(progMs / 1000).toFixed(1)}s  frame decode mismatch (${a.length}/${W * H}), skipped`); continue }
 
-  const face = faces.samples.filter((s) => s.face !== undefined)
-    .reduce((best, s) => (best === undefined || Math.abs(s.atMs - srcMs) < Math.abs(best.atMs - srcMs) ? s : best), undefined as typeof faces.samples[number] | undefined)?.face
+  const nearest = faces.samples.filter((s) => s.face !== undefined)
+    .reduce((best, s) => (best === undefined || Math.abs(s.atMs - srcMs) < Math.abs(best.atMs - srcMs) ? s : best), undefined as typeof faces.samples[number] | undefined)
+  // Only a face sample close enough in time counts as evidence; a box from seconds away proves
+  // nothing about this frame.
+  const face = nearest !== undefined && Math.abs(nearest.atMs - srcMs) <= 500 ? nearest.face : undefined
+  if (face !== undefined) facesWithEvidence++
 
-  let captionPx = 0, inside = 0, minY = H, maxY = 0
+  let captionPx = 0, inside = 0, minY = H, maxY = 0, minX = W, maxX = 0
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < W; x++) {
       const d = a[y * W + x]! - b[y * W + x]!
@@ -111,6 +134,8 @@ for (let i = 0; i < sampleCount; i++) {
         captionPx++
         if (y < minY) minY = y
         if (y > maxY) maxY = y
+        if (x < minX) minX = x
+        if (x > maxX) maxX = x
         if (face !== undefined) {
           const f = toOutput(face)
           if (x >= f.x && x <= f.x + f.w && y >= f.y && y <= f.y + f.h) inside++
@@ -119,6 +144,12 @@ for (let i = 0; i < sampleCount; i++) {
     }
   }
   totalCaptionPixels += captionPx
+  // Ink in the outermost columns means a glyph is being clipped by the frame edge.
+  const edgeMargin = Math.max(2, Math.round(W * 0.01))
+  if (captionPx > 50 && (minX <= edgeMargin || maxX >= W - 1 - edgeMargin)) {
+    clippedFrames++
+    console.log(`  t=${(progMs / 1000).toFixed(1)}s  caption ink reaches x ${minX}..${maxX} of ${W} → CLIPPED at the frame edge`)
+  }
   insideFace += inside
   if (captionPx > 50) framesWithCaption++
   const mapped = face === undefined ? null : toOutput(face)
@@ -129,12 +160,14 @@ for (let i = 0; i < sampleCount; i++) {
 }
 const measured = sampleCount - skipped
 console.log(`\n  measured ${measured}/${sampleCount} frames · with captions ${framesWithCaption} · caption pixels ${totalCaptionPixels} · over a face ${insideFace}`)
-if (measured === 0 || framesWithCaption === 0) {
+if (measured === 0 || framesWithCaption === 0 || facesWithEvidence === 0) {
   // Nothing was actually compared: reporting PASS here would be a lie, and it happened once
   // (the clip's dimensions were mis-probed, every frame was skipped, and the run went green).
   console.log('  INCONCLUSIVE — no frames could be compared ✘\n')
   process.exit(1)
 }
-const ok = insideFace === 0
-console.log(`  ${ok ? 'PASS — captions never cover the face' : 'FAIL — captions overlap the face'}\n`)
+const ok = insideFace === 0 && clippedFrames === 0
+if (insideFace > 0) console.log(`  FAIL — ${insideFace} caption pixels lie over the face`)
+if (clippedFrames > 0) console.log(`  FAIL — ${clippedFrames} frame(s) have caption ink at the frame edge (glyphs are clipped)`)
+console.log(`  ${ok ? 'PASS — captions clear the face and stay inside the frame' : 'FAIL'}\n`)
 process.exit(ok ? 0 : 1)

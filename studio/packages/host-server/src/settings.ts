@@ -35,8 +35,8 @@ export const DEFAULT_SETTINGS: RenderSettings = {
   font: 'inter',
   voicePolish: true,
   pace: 'normal',
-  orientation: 'horizontal',
-  background: 'none',
+  orientation: 'vertical',
+  background: 'blur',
   graphics: 'none',
 }
 
@@ -68,9 +68,9 @@ export const OPTIONS: Record<keyof RenderSettings, OptionSpec[]> = {
     { value: 'vertical', label: 'Vertical 9:16', built: true, note: 'crop follows the median face position' },
   ],
   background: [
-    { value: 'none', label: 'No background', built: true },
-    { value: 'blur', label: 'Blurred background', built: false, note: 'needs subject matte' },
-    { value: 'studio', label: 'Studio backdrop', built: false, note: 'needs subject matte' },
+    { value: 'none', label: 'Crop to fill', built: true, note: 'vertical keeps only ~32% of a 16:9 frame' },
+    { value: 'blur', label: 'Blurred background', built: true, note: 'vertical only: whole frame fitted over a blurred copy of itself' },
+    { value: 'studio', label: 'Studio look', built: true, note: 'blurred fill plus a vignette and a quieter grade' },
   ],
   graphics: [
     { value: 'none', label: 'No graphics', built: true },
@@ -108,6 +108,13 @@ export async function writeProjectSettings(
     if (allowed === undefined) throw new Error(`"${String(value)}" is not a valid value for ${key}`)
     if (!allowed.built) throw new Error(`${key} = "${allowed.value}" is not implemented yet (${allowed.note ?? 'unbuilt'})`)
     next[key] = value
+  }
+  // A background treatment needs a frame that does not fill the canvas. In horizontal delivery
+  // the frame does fill it, so a blurred background is meaningless — accepting it silently would
+  // give the user a switch that does nothing.
+  const effectiveOrientation = next.orientation
+  if (next.background !== 'none' && effectiveOrientation === 'horizontal' && next.background === 'blur') {
+    throw new Error('a blurred background only applies to vertical delivery (horizontal fills the frame); choose Vertical or Studio look')
   }
   const onDisk = JSON.parse(await readFile(join(projectsRoot, slug, 'project.json'), 'utf8')) as Record<string, unknown>
   onDisk.settings = next

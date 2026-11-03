@@ -119,6 +119,10 @@ export function shiftWords(words: Word[], win: CompactedWindow, fromMs: number, 
  * timestamps are already the source's own.
  */
 export function compactSelectExpr(win: CompactedWindow): string {
+  // An EMPTY expression is not an error to ffmpeg: `select=''` selects every frame, so a
+  // degenerate window (zero length, reversed, or entirely inside a pause) rendered the whole
+  // source and reported success. `0` selects nothing, which fails loudly downstream.
+  if (win.regions.length === 0) return '0'
   return win.regions
     .map((r) => `between(t,${(r.srcStartMs / 1000).toFixed(3)},${(r.srcEndMs / 1000).toFixed(3)})`)
     .join('+')

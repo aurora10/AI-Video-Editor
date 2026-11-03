@@ -10,7 +10,7 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { Transcript } from '@dsh-video/core'
 import { chinAt, detectFaces, detectSilence, projectPaths, refineWordTimings } from '../packages/host-ingest/src/index.js'
-import { compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, planCaptionPages, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
+import { compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, fitSizePx, planCaptionPages, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
 
 const argv = process.argv.slice(2)
 const slug = argv.find((a) => !a.startsWith('--'))
@@ -40,8 +40,15 @@ const pace = opt('pace', 'normal') as 'calm' | 'normal' | 'fast'
 // Measured on the reference cut: 0 ms reads as rushed jump cuts; ~220 ms lets a thought land.
 const PAUSE_RETAIN: Record<typeof pace, number> = { fast: 0, normal: 80, calm: 220 }
 const win = compactWindow(silence, fromMs, toMs, { pauseMs: 250, pauseRetainMs: PAUSE_RETAIN[pace] })
+if (win.regions.length === 0) {
+  console.error(`no speech survived in ${opt('from')}–${opt('to')}: the window is empty, reversed, or entirely pause`)
+  process.exit(2)
+}
 const words = shiftWords(transcript.words, win, fromMs, toMs)
 const orientation = (opt('orientation', 'horizontal') as 'horizontal' | 'vertical')
+const background = (opt('background', 'none') as 'none' | 'blur' | 'studio')
+/** Vertical + a background treatment means "fit the whole frame", not "crop a strip out of it". */
+const wantsFill = orientation === 'vertical' && background !== 'none'
 const probe = spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', proxy], { encoding: 'utf8' })
 const [SRC_W, SRC_H] = probe.stdout.trim().split(',').map(Number) as [number, number]
 // Vertical preview: 9:16 at the same pixel budget as the 540p landscape preview.
@@ -89,8 +96,16 @@ const medianFaceX = faceCenters.length === 0 ? SRC_W / 2 : faceCenters[Math.floo
 const cropX = orientation === 'vertical'
   ? Math.max(0, Math.min(Math.round(medianFaceX - cropW / 2), SRC_W - cropW))
   : 0
-// Cropping keeps full height and the scale is uniform in y, so the chin maps by the height ratio.
-const medianChin = Math.round(medianChinSrc * (H / SRC_H))
+// How source pixels land in the delivered frame. Two treatments, one mapping:
+//   crop  — fill the canvas, discarding the sides (sx from the crop width)
+//   fill  — fit the whole frame and pad with blur (uniform scale + centring offsets)
+// Getting this wrong is subtle and silent: captions were placed with the crop mapping while the
+// frame was actually fitted, which put them ~190px lower than intended.
+const fitScale = Math.min(W / SRC_W, H / SRC_H)
+const transform = wantsFill
+  ? { sx: fitScale, sy: fitScale, ox: (W - SRC_W * fitScale) / 2, oy: (H - SRC_H * fitScale) / 2 }
+  : { sx: W / (orientation === 'vertical' ? cropW : SRC_W), sy: H / SRC_H, ox: orientation === 'vertical' ? -cropX * (W / cropW) : 0, oy: 0 }
+const medianChin = Math.round(transform.oy + medianChinSrc * transform.sy)
 const topPx = Math.min(medianChin + gapPx, Math.round(H * 0.82))
 
 // --- captions -------------------------------------------------------------
@@ -100,16 +115,25 @@ const topPx = Math.min(medianChin + gapPx, Math.round(H * 0.82))
 const bandPx = bottomSafe - topPx
 const maxSizeForBand = Math.floor(bandPx / 1.18)
 const baseSize = Math.round(H * (captionMode === 'word' ? 0.165 : 0.115))
+// Two independent limits: the vertical band below the chin, and the horizontal budget for the
+// longest word that will appear. Without the second, a 158px word overflowed a 540px frame.
+const longestWord = words.reduce((a, w) => (w.text.length > a.length ? w.text : a), '')
+const probeStyle = { ...DEFAULT_CYRILLIC_CAPTION_STYLE, fontFamily: font.family, fontDir: font.dir, sizePx: baseSize }
+const maxSizeForWidth = fitSizePx(longestWord, probeStyle, W * DEFAULT_CYRILLIC_CAPTION_STYLE.maxWidthPct)
 const style = {
   ...DEFAULT_CYRILLIC_CAPTION_STYLE,
   fontFamily: font.family,
   fontDir: font.dir,
-  sizePx: Math.min(baseSize, maxSizeForBand),
+  sizePx: Math.max(16, Math.min(baseSize, maxSizeForBand, maxSizeForWidth)),
   karaoke: captionMode,
   maxLines: 1,
 }
 console.log(`  faces: ${chins.length} samples · median chin ${medianChinSrc}px(source) · captions at y=${topPx} · band ${bandPx}px · font ${font.entry.label} ${style.sizePx}px`)
-if (orientation === 'vertical') console.log(`  reframe: ${W}x${H} · crop ${cropW}x${SRC_H} at x=${cropX} (median face x ${Math.round(medianFaceX)})`)
+if (orientation === 'vertical') {
+  console.log(wantsFill
+    ? `  reframe: ${W}x${H} · full frame fitted over a blurred self-background (${background}), no cropping`
+    : `  reframe: ${W}x${H} · crop ${cropW}x${SRC_H} at x=${cropX} (median face x ${Math.round(medianFaceX)})`)
+}
 
 const pages = planCaptionPages(words, {
   frameWidth: W,
@@ -133,7 +157,10 @@ const outDir = resolve('out')
 await mkdir(outDir, { recursive: true })
 const outPath = join(outDir, `${slug}-${label}.mp4`)
 const sel = compactSelectExpr(win)
-const voice = voicePolishChain()
+const noVoice = argv.includes('--no-voice-polish')
+const voice = noVoice
+  ? { filters: 'anull', description: 'raw audio (voice polish off)' }
+  : voicePolishChain()
 void H
 console.log(`  voice: ${voice.description}`)
 // loudnorm normalises AUDIO; burning captions is a VIDEO filter. Keeping them on their
@@ -144,16 +171,42 @@ console.log(`  voice: ${voice.description}`)
 // Build the video chain as a list and join it: string-concatenating optional segments left a
 // dangling comma whenever the last one was absent (vertical + no captions), which ffmpeg
 // rejects as "No such filter: ''".
-const videoChain = [
-  `select='${sel}'`,
-  'setpts=N/FRAME_RATE/TB',
-  ...(orientation === 'vertical' ? [`crop=${cropW}:${SRC_H}:${cropX}:0`, `scale=${W}:${H}:flags=lanczos`] : []),
-  ...(withCaptions ? [`ass=${burnAssPath}:fontsdir=${style.fontDir}`] : []),
-]
-const filter = [
-  `[0:v]${videoChain.join(',')}[outv]`,
-  `[1:a]aselect='${sel}',asetpts=N/SR/TB,${voice.filters}[outa]`,
-].join(';')
+// A grade is only meaningful as a *frame treatment*; for the fill case it applies to the
+// composited result, for the plain case to the frame itself.
+const gradeChain = background === 'studio' ? ['eq=brightness=-0.06:saturation=0.82', 'vignette=PI/5'] : []
+// Grade first, captions last: applying the grade after the burn dimmed and vignetted the type
+// itself (caption pixels peaked at 225 instead of 255 under the studio look).
+const tail = [...gradeChain, ...(withCaptions ? [`ass=${burnAssPath}:fontsdir=${style.fontDir}`] : [])]
+
+let filter: string
+if (wantsFill) {
+  // Fit the WHOLE frame and fill the remainder with a blurred copy of itself.
+  //
+  // Cropping a 9:16 window out of 16:9 keeps only ~32% of the frame's width; on a seated
+  // talking head that loses the room and half the gesture. A blurred self-background is the
+  // standard vertical treatment for landscape footage, needs no subject matte, and therefore
+  // cannot produce halos around hair or hands.
+  const blurSigma = background === 'studio' ? 42 : 28
+  const composite = [...tail, 'format=yuv420p'].join(',')
+  filter = [
+    `[0:v]select='${sel}',setpts=N/FRAME_RATE/TB,split=2[bg][fg]`,
+    `[bg]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=${blurSigma},eq=brightness=-0.18:saturation=0.55[bgv]`,
+    `[fg]scale=${W}:${H}:force_original_aspect_ratio=decrease:flags=lanczos[fgs]`,
+    `[bgv][fgs]overlay=(W-w)/2:(H-h)/2,${composite}[outv]`,
+    `[1:a]aselect='${sel}',asetpts=N/SR/TB,${voice.filters}[outa]`,
+  ].join(';')
+} else {
+  const chain = [
+    `select='${sel}'`,
+    'setpts=N/FRAME_RATE/TB',
+    ...(orientation === 'vertical' ? [`crop=${cropW}:${SRC_H}:${cropX}:0`, `scale=${W}:${H}:flags=lanczos`] : []),
+    ...tail,
+  ].filter((part) => part !== '')
+  filter = [
+    `[0:v]${chain.join(',')}[outv]`,
+    `[1:a]aselect='${sel}',asetpts=N/SR/TB,${voice.filters}[outa]`,
+  ].join(';')
+}
 
 const started = Date.now()
 const r = spawnSync('ffmpeg', [
@@ -174,10 +227,14 @@ await writeFile(metaPath, JSON.stringify({
   source: { width: SRC_W, height: SRC_H },
   output: { width: W, height: H },
   crop: orientation === 'vertical' ? { x: cropX, w: cropW, h: SRC_H } : null,
-  scale: { x: W / (orientation === 'vertical' ? cropW : SRC_W), y: H / SRC_H },
+  transform,
+  treatment: wantsFill
+    ? `fill+${background}`
+    : `${orientation === 'vertical' ? 'crop' : 'plain'}${gradeChain.length > 0 ? `+${background}` : ''}`,
+  backgroundApplied: wantsFill || gradeChain.length > 0,
   captions: withCaptions ? { topPx, fontPx: style.sizePx, mode: captionMode, font: font.entry.key } : null,
   pace, pauseRetainMs: PAUSE_RETAIN[pace],
-  voicePolish: true,
+  voicePolish: !noVoice,
   programMs: win.programDurationMs,
 }, null, 2) + '\n')
 

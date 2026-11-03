@@ -87,6 +87,17 @@ function advanceEm(ch: string): number {
   return 0.56
 }
 
+/**
+ * Largest font size at which `text` still fits `maxWidthPx`, so a page can be shrunk instead of
+ * clipped. Returns the style size when it already fits.
+ */
+export function fitSizePx(text: string, style: CaptionStyle, maxWidthPx: number): number {
+  const natural = estimateWidthPx(text, style)
+  if (natural <= maxWidthPx) return style.sizePx
+  const scaled = Math.floor((style.sizePx * maxWidthPx) / natural)
+  return Math.max(Math.round(style.sizePx * 0.4), scaled)
+}
+
 export function estimateWidthPx(text: string, style: CaptionStyle): number {
   let em = 0
   for (const ch of text) em += advanceEm(ch)
@@ -117,7 +128,9 @@ function wrapLines(words: Word[], style: CaptionStyle, frameWidth: number): { li
   const budget = frameWidth * style.maxWidthPct
   const texts = words.map((w) => wordText(w, style))
   const full = texts.join(' ')
-  if (estimateWidthPx(full, style) <= budget || words.length === 1) {
+  // No escape for one-word pages: a long word at a large size overflowed a 540px vertical
+  // frame and was clipped at both edges, while the face-overlap check happily passed.
+  if (estimateWidthPx(full, style) <= budget && words.length === 1) {
     return { lines: [full], widthPx: estimateWidthPx(full, style) }
   }
   if (style.maxLines < 2) return { lines: [full], widthPx: estimateWidthPx(full, style) }

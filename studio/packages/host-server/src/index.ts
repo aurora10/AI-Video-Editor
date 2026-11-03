@@ -137,6 +137,8 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
         if (body.project === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project required' } }); return }
         const slug = body.project
         const running = jobs.get(slug)
+        // Forget a finished job that nobody will ask about again, so the map cannot grow.
+        if (running !== undefined && running.status !== 'running' && Date.now() - running.startedAt > 60 * 60_000) jobs.delete(slug)
         if (running !== undefined && running.status === 'running') { json(res, 409, { ok: false, error: { code: 'BUSY', message: 'a render is already running for this project' } }); return }
         const settings = (await readProject(projectsRoot, slug)).settings as RenderSettings
         const label = body.label ?? `render-${Date.now()}`
@@ -148,6 +150,8 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
           '--font', settings.font,
           '--pace', settings.pace,
           '--orientation', settings.orientation,
+          '--background', settings.background,
+          ...(settings.voicePolish ? [] : ['--no-voice-polish']),
           ...(settings.captions ? ['--captions', settings.captionStyle === 'plain' ? 'none' : settings.captionStyle] : ['--no-captions'])]
         const child = spawn('pnpm', args, { cwd: config.workspaceRoot, env: { ...process.env } })
         const onData = (chunk: Buffer): void => {
@@ -157,7 +161,22 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
         }
         child.stdout.on('data', onData)
         child.stderr.on('data', onData)
+        // A spawn failure (pnpm missing, bad cwd) emits 'error'; without a listener it throws
+        // inside the host process.
+        child.on('error', (error) => {
+          job.status = 'failed'
+          job.error = `failed to start the renderer: ${String(error)}`
+        })
+        // Watchdog: an ffmpeg that hangs would otherwise leave the pane at "Rendering…" for ever.
+        const watchdog = setTimeout(() => {
+          if (job.status !== 'running') return
+          job.status = 'failed'
+          job.error = 'render exceeded the 15 minute limit and was killed'
+          try { child.kill('SIGKILL') } catch { /* already gone */ }
+        }, 15 * 60_000)
         child.on('close', (code) => {
+          clearTimeout(watchdog)
+          if (job.status === 'failed') return
           job.status = code === 0 ? 'done' : 'failed'
           if (code === 0) job.outputUrl = `/video/media/${slug}/out/${slug}-${label}.mp4`
           else job.error = job.log.slice(-5).join(' | ')
