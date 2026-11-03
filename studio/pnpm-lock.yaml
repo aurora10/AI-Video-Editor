@@ -68,6 +68,18 @@ importers:
         specifier: workspace:*
         version: link:../core
 
+  packages/host-render:
+    dependencies:
+      '@dsh-video/core':
+        specifier: workspace:*
+        version: link:../core
+
+  packages/host-server:
+    dependencies:
+      '@dsh-video/core':
+        specifier: workspace:*
+        version: link:../core
+
 packages:
 
   '@emnapi/runtime@1.11.3':

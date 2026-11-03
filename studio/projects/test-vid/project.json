@@ -55,5 +55,15 @@
       }
     }
   ],
-  "defaultOutputId": "vertical"
+  "defaultOutputId": "vertical",
+  "settings": {
+    "captions": true,
+    "captionStyle": "word",
+    "font": "arial-bold",
+    "voicePolish": true,
+    "pace": "normal",
+    "orientation": "horizontal",
+    "background": "none",
+    "graphics": "none"
+  }
 }

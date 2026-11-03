@@ -12,6 +12,7 @@
     "cordis.patch.yml"
   ],
   "dependencies": {
-    "dsh-video-client-pane": "file:../client-pane"
+    "dsh-video-client-pane": "file:../client-pane",
+    "dsh-video-host-server": "file:../host-server"
   }
 }

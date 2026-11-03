@@ -11,3 +11,7 @@
 - insert:
     - id: video-client-pane
       name: 'dsh-video-client-pane'
+    - id: video-host-server
+      name: 'dsh-video-host-server'
+      config:
+        workspaceRoot: !!js process.env.DSH_VIDEO_WORKSPACE ?? process.cwd()

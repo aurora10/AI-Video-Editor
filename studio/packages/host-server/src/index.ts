@@ -1,0 +1,173 @@
+/**
+ * The HTTP surface the Studio pane talks to.
+ *
+ * Deliberately its own routes rather than a DSH `/remote` namespace: adding one of those
+ * requires editing a build-time array inside the harness checkout, and this product is
+ * out-of-tree. One prefix (`/video`) carries three things: `/video/api/*` for JSON commands,
+ * `/video/media/*` for Range-capable media, and `/video/events` for push updates.
+ */
+import type { IncomingMessage, ServerResponse } from 'node:http'
+import { join } from 'node:path'
+import { spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { readdir, stat } from 'node:fs/promises'
+import { confine, isTrustedLocalRequest, serveFile } from './media.js'
+import { OPTIONS, readProject, writeProjectSettings, type RenderSettings } from './settings.js'
+
+export { OPTIONS, DEFAULT_SETTINGS, readProject, writeProjectSettings } from './settings.js'
+export type { RenderSettings, OptionSpec } from './settings.js'
+
+export interface HostServerConfig {
+  /** Absolute path to the workspace root that contains `projects/`. */
+  workspaceRoot: string
+  /** Where the pane's renders are written. */
+  outputDir?: string
+}
+
+interface WebRoute { kind: 'prefix' | 'exact'; path: string; handler: (req: IncomingMessage, res: ServerResponse) => void | Promise<void> }
+interface WebServerLike { register(route: WebRoute): () => void }
+
+const json = (res: ServerResponse, status: number, body: unknown): void => {
+  const payload = JSON.stringify(body)
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'content-length': String(Buffer.byteLength(payload)) })
+  res.end(payload)
+}
+
+const readBody = (req: IncomingMessage, limit = 1_000_000): Promise<unknown> =>
+  new Promise((resolve, reject) => {
+    let data = ''
+    req.on('data', (chunk: Buffer) => {
+      data += chunk.toString()
+      if (data.length > limit) reject(new Error('body too large'))
+    })
+    req.on('end', () => {
+      if (data === '') return resolve({})
+      try { resolve(JSON.parse(data)) } catch (e) { reject(e instanceof Error ? e : new Error(String(e))) }
+    })
+    req.on('error', reject)
+  })
+
+/** One running render at a time per project; the pane polls `state` for progress. */
+interface RenderJob { slug: string; label: string; startedAt: number; status: 'running' | 'done' | 'failed'; log: string[]; outputUrl?: string; error?: string }
+const jobs = new Map<string, RenderJob>()
+
+export const name = 'dsh-video-host-server'
+export const inject = ['webServer']
+
+export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, label?: string) => void }, config: HostServerConfig): void {
+  const projectsRoot = join(config.workspaceRoot, 'projects')
+  const outputDir = config.outputDir ?? join(config.workspaceRoot, 'out')
+
+  const guard = (req: IncomingMessage, res: ServerResponse): boolean => {
+    if (!isTrustedLocalRequest(req)) { json(res, 403, { ok: false, error: { code: 'FORBIDDEN', message: 'loopback requests only' } }); return false }
+    return true
+  }
+
+  const handler = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+    const path = url.pathname
+
+    // ---- media (Range) ----------------------------------------------------
+    if (path.startsWith('/video/media/')) {
+      if (!guard(req, res)) return
+      const rest = decodeURIComponent(path.slice('/video/media/'.length))
+      const [slug, ...relative] = rest.split('/')
+      if (slug === undefined || relative.length === 0) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'expected /video/media/<project>/<path>' } }); return }
+      // `out/...` addresses the render output directory; everything else is inside the
+      // project folder. Encoding this in the path avoids `..` in URLs, which used to work
+      // only because the confinement cleaner happened to strip it.
+      const joined = relative.join('/')
+      const file = joined.startsWith('out/')
+        ? await confine(outputDir, joined.slice(4))
+        : await confine(join(projectsRoot, slug), joined)
+      if (file === null || !existsSync(file)) { json(res, 404, { ok: false, error: { code: 'NOT_FOUND', message: `no such media: ${rest}` } }); return }
+      await serveFile(req, res, file)
+      return
+    }
+
+    // ---- api --------------------------------------------------------------
+    if (!path.startsWith('/video/api/')) { json(res, 404, { ok: false, error: { code: 'NOT_FOUND', message: path } }); return }
+    if (!guard(req, res)) return
+    const method = path.slice('/video/api/'.length)
+
+    try {
+      if (method === 'projects' && req.method === 'GET') {
+        const entries = await readdir(projectsRoot, { withFileTypes: true }).catch(() => [])
+        const projects = entries.filter((e) => e.isDirectory()).map((e) => ({ slug: e.name }))
+        json(res, 200, { ok: true, value: { projects } })
+        return
+      }
+
+      if (method === 'state' && req.method === 'GET') {
+        const slug = url.searchParams.get('project')
+        if (slug === null) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project query parameter required' } }); return }
+        const record = await readProject(projectsRoot, slug)
+        const job = jobs.get(slug)
+        // Newest render on disk for this project.
+        const outputs = (await readdir(outputDir).catch(() => []))
+          .filter((f) => f.startsWith(`${slug}-`) && f.endsWith('.mp4') && !f.includes('nocaps'))
+        let latest: { file: string; mtimeMs: number } | undefined
+        for (const f of outputs) {
+          const s = await stat(join(outputDir, f)).catch(() => null)
+          if (s !== null && (latest === undefined || s.mtimeMs > latest.mtimeMs)) latest = { file: f, mtimeMs: s.mtimeMs }
+        }
+        json(res, 200, {
+          ok: true,
+          value: {
+            project: { slug, id: record.id, name: record.name },
+            settings: record.settings,
+            options: OPTIONS,
+            render: latest === undefined ? null : { url: `/video/media/${slug}/out/${latest.file}`, file: latest.file, mtimeMs: latest.mtimeMs },
+            job: job ?? null,
+          },
+        })
+        return
+      }
+
+      if (method === 'settings' && req.method === 'POST') {
+        const body = (await readBody(req)) as { project?: string; patch?: Partial<RenderSettings> }
+        if (body.project === undefined || body.patch === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project and patch required' } }); return }
+        const settings = await writeProjectSettings(projectsRoot, body.project, body.patch)
+        json(res, 200, { ok: true, value: { settings } })
+        return
+      }
+
+      if (method === 'render' && req.method === 'POST') {
+        const body = (await readBody(req)) as { project?: string; from?: string; to?: string; label?: string }
+        if (body.project === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project required' } }); return }
+        const slug = body.project
+        const running = jobs.get(slug)
+        if (running !== undefined && running.status === 'running') { json(res, 409, { ok: false, error: { code: 'BUSY', message: 'a render is already running for this project' } }); return }
+        const settings = (await readProject(projectsRoot, slug)).settings as RenderSettings
+        const label = body.label ?? `render-${Date.now()}`
+        const job: RenderJob = { slug, label, startedAt: Date.now(), status: 'running', log: [] }
+        jobs.set(slug, job)
+
+        const args = ['-s', 'tsx', 'scripts/render-clip.ts', slug,
+          '--from', body.from ?? '4:47', '--to', body.to ?? '5:47', '--label', label,
+          ...(settings.captions ? ['--captions', settings.captionStyle === 'plain' ? 'none' : settings.captionStyle] : ['--no-captions'])]
+        const child = spawn('pnpm', args, { cwd: config.workspaceRoot, env: { ...process.env } })
+        const onData = (chunk: Buffer): void => {
+          for (const line of chunk.toString().split('\n')) {
+            if (line.trim() !== '') { job.log.push(line); if (job.log.length > 200) job.log.shift() }
+          }
+        }
+        child.stdout.on('data', onData)
+        child.stderr.on('data', onData)
+        child.on('close', (code) => {
+          job.status = code === 0 ? 'done' : 'failed'
+          if (code === 0) job.outputUrl = `/video/media/${slug}/out/${slug}-${label}.mp4`
+          else job.error = job.log.slice(-5).join(' | ')
+        })
+        json(res, 202, { ok: true, value: { job: { slug, label, status: job.status } } })
+        return
+      }
+
+      json(res, 404, { ok: false, error: { code: 'NOT_FOUND', message: `no such method: ${method}` } })
+    } catch (error) {
+      json(res, 400, { ok: false, error: { code: 'FAILED', message: error instanceof Error ? error.message : String(error) } })
+    }
+  }
+
+  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/video', handler }), 'dsh-video: /video routes')
+}

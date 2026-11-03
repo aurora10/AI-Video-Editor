@@ -1,62 +1,209 @@
 /**
- * Studio view — spike S2 placeholder.
+ * The Studio pane: the owner's controls, in the browser, where they belong.
  *
- * Its only job right now is to prove that an out-of-tree client bundle can take
- * a seat in `conversation.view`. The real pane (viewer, timeline, notes rail)
- * lands in phase F, after the two gates are green.
+ * Design rule: every control maps to a renderer capability that exists. Options the engine
+ * cannot honour yet are shown greyed with the reason, because a switch that silently does
+ * nothing is worse than an honest "not built".
  */
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { StudioViewProps } from './dsh.ts'
 
-const STYLES = `
-.dsh-studio-spike {
-  display: flex; flex-direction: column; gap: 12px;
-  padding: 24px; font: 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+interface OptionSpec { value: string; label: string; built: boolean; note?: string }
+type Settings = Record<string, string | boolean>
+interface StatePayload {
+  project: { slug: string; id: string; name: string }
+  settings: Settings
+  options: Record<string, OptionSpec[]>
+  render: { url: string; file: string; mtimeMs: number } | null
+  job: { status: 'running' | 'done' | 'failed'; log: string[]; error?: string; outputUrl?: string } | null
 }
-.dsh-studio-spike h2 { font-size: 16px; font-weight: 600; margin: 0; }
-.dsh-studio-spike dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
-.dsh-studio-spike dt { opacity: 0.6; }
-.dsh-studio-spike dd { margin: 0; font-family: ui-monospace, monospace; }
-.dsh-studio-spike .ok { color: #1a7f37; font-weight: 600; }
+
+const api = async <T,>(path: string, init?: RequestInit): Promise<T> => {
+  const res = await fetch(`/video/api/${path}`, {
+    ...init,
+    headers: { 'content-type': 'application/json', ...(init?.headers ?? {}) },
+  })
+  const body = (await res.json()) as { ok: boolean; value?: T; error?: { message: string } }
+  if (!body.ok) throw new Error(body.error?.message ?? 'request failed')
+  return body.value as T
+}
+
+const STYLES = `
+.dshstudio { display: grid; grid-template-columns: minmax(320px, 1fr) 360px; gap: 20px; padding: 20px; font: 14px/1.45 ui-sans-serif, system-ui, sans-serif; color: #e6e6e6; height: 100%; box-sizing: border-box; }
+.dshstudio * { box-sizing: border-box; }
+.dshstudio h2 { font-size: 15px; font-weight: 600; margin: 0 0 4px; }
+.dshstudio .sub { opacity: .55; font-size: 12px; margin-bottom: 14px; }
+.dshstudio .stage { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.dshstudio video { width: 100%; max-height: 62vh; background: #000; border-radius: 10px; }
+.dshstudio .bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.dshstudio button { font: inherit; border-radius: 8px; border: 1px solid #3a3a3a; background: #1d1d1d; color: inherit; padding: 6px 11px; cursor: pointer; }
+.dshstudio button:hover:not(:disabled) { background: #262626; }
+.dshstudio button[aria-pressed="true"] { background: #2b6cb0; border-color: #2b6cb0; color: #fff; }
+.dshstudio button:disabled { opacity: .4; cursor: not-allowed; }
+.dshstudio button.primary { background: #1f7a3f; border-color: #1f7a3f; color: #fff; font-weight: 600; }
+.dshstudio .panel { display: flex; flex-direction: column; gap: 14px; overflow-y: auto; padding-right: 4px; }
+.dshstudio .group > .label { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; opacity: .5; margin-bottom: 6px; }
+.dshstudio .opts { display: flex; flex-wrap: wrap; gap: 6px; }
+.dshstudio .note { font-size: 11px; opacity: .45; margin-top: 4px; }
+.dshstudio .status { font-size: 12px; font-family: ui-monospace, monospace; background: #141414; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; max-height: 150px; overflow: auto; white-space: pre-wrap; }
+.dshstudio .err { color: #ff8a8a; }
+.dshstudio .ok { color: #7ddc9a; }
 `
 
-let stylesInjected = false
-function injectStyles(): void {
-  if (stylesInjected || typeof document === 'undefined') return
-  stylesInjected = true
+let injected = false
+const injectStyles = (): void => {
+  if (injected || typeof document === 'undefined') return
+  injected = true
   const el = document.createElement('style')
   el.dataset.plugin = 'dsh-video-client-pane'
   el.textContent = STYLES
   document.head.appendChild(el)
 }
 
+const LABELS: Record<string, string> = {
+  captions: 'Captions',
+  captionStyle: 'Caption style',
+  font: 'Font',
+  voicePolish: 'Sound',
+  pace: 'Pace',
+  orientation: 'Format',
+  background: 'Background',
+  graphics: 'Graphics and B-roll',
+}
+
 export function StudioView(props: StudioViewProps) {
   injectStyles()
-  const [ticks, setTicks] = useState(0)
-  useEffect(() => {
-    const timer = setInterval(() => setTicks((n) => n + 1), 1000)
-    return () => clearInterval(timer)
+  const [slug, setSlug] = useState<string>('')
+  const [projects, setProjects] = useState<string[]>([])
+  const [state, setState] = useState<StatePayload | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+
+  const load = useCallback(async (which: string) => {
+    try {
+      const value = await api<StatePayload>(`state?project=${encodeURIComponent(which)}`)
+      setState(value)
+      setError(null)
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }, [])
 
+  // discover projects once
+  useEffect(() => {
+    void (async () => {
+      try {
+        const { projects: list } = await api<{ projects: { slug: string }[] }>('projects')
+        const slugs = list.map((p) => p.slug)
+        setProjects(slugs)
+        const remembered = typeof localStorage === 'undefined' ? '' : localStorage.getItem('dshstudio.project') ?? ''
+        const pick = slugs.includes(remembered) ? remembered : slugs[0] ?? ''
+        setSlug(pick)
+        if (pick !== '') await load(pick)
+      } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
+    })()
+  }, [load])
+
+  // poll while a render runs
+  useEffect(() => {
+    if (state?.job?.status !== 'running' || slug === '') return
+    const timer = setInterval(() => { void load(slug) }, 2000)
+    return () => clearInterval(timer)
+  }, [state?.job?.status, slug, load])
+
+  const change = async (key: string, value: string | boolean) => {
+    if (slug === '') return
+    setBusy(true)
+    try {
+      await api('settings', { method: 'POST', body: JSON.stringify({ project: slug, patch: { [key]: value } }) })
+      await load(slug)
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+  }
+
+  const render = async () => {
+    if (slug === '') return
+    setBusy(true)
+    try {
+      await api('render', { method: 'POST', body: JSON.stringify({ project: slug, from: '4:47', to: '5:47' }) })
+      await load(slug)
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+  }
+
+  const videoUrl = useMemo(() => {
+    if (state?.job?.status === 'done' && state.job.outputUrl !== undefined) return `${state.job.outputUrl}?t=${Date.now()}`
+    return state?.render?.url ?? null
+  }, [state])
+
+  if (error !== null && state === null) {
+    return <div className="dshstudio"><div className="err">Studio: {error}</div></div>
+  }
+
   return (
-    <div className="dsh-studio-spike">
-      <h2>
-        Studio pane <span className="ok">online</span>
-      </h2>
-      <dl>
-        <dt>bundle</dt>
-        <dd>dsh-video-client-pane</dd>
-        <dt>session</dt>
-        <dd>{String(props.sessionId ?? 'unbound')}</dd>
-        <dt>react</dt>
-        <dd>{String((globalThis as { React?: { version?: string } }).React?.version ?? 'from module table')}</dd>
-        <dt>ticking</dt>
-        <dd>{ticks}s — proves the component is mounted and re-rendering</dd>
-      </dl>
-      <p style={{ opacity: 0.7, margin: 0 }}>
-        Spike S2. The viewer, timeline and notes rail arrive after gates S2/S3 are green — see{' '}
-        <code>docs/build-plan.md</code>.
-      </p>
+    <div className="dshstudio">
+      <div className="stage">
+        <div>
+          <h2>{state?.project.name ?? 'Studio'}</h2>
+          <div className="sub">session {String(props.sessionId ?? 'unbound')}</div>
+        </div>
+        {videoUrl !== null
+          ? <video ref={videoRef} src={videoUrl} controls playsInline preload="metadata" />
+          : <div className="status">No render yet — press Render to make one.</div>}
+        <div className="bar">
+          <button className="primary" onClick={() => void render()} disabled={busy || state?.job?.status === 'running' || slug === ''}>
+            {state?.job?.status === 'running' ? 'Rendering…' : 'Render'}
+          </button>
+          <button onClick={() => { if (videoRef.current !== null) { videoRef.current.currentTime = 0; void videoRef.current.play() } }} disabled={videoUrl === null}>Replay</button>
+          {state?.render !== null && state?.render !== undefined && <span className="sub" style={{ margin: 0 }}>latest: {state.render.file}</span>}
+        </div>
+        {state?.job !== null && state?.job !== undefined && (
+          <div className={`status ${state.job.status === 'failed' ? 'err' : ''}`}>
+            {state.job.status === 'failed' ? `failed: ${state.job.error ?? ''}` : state.job.log.slice(-6).join('\n')}
+          </div>
+        )}
+        {error !== null && <div className="status err">{error}</div>}
+      </div>
+
+      <div className="panel">
+        {projects.length > 1 && (
+          <div className="group">
+            <div className="label">Project</div>
+            <div className="opts">
+              {projects.map((p) => (
+                <button key={p} aria-pressed={p === slug} onClick={() => { setSlug(p); if (typeof localStorage !== 'undefined') localStorage.setItem('dshstudio.project', p); void load(p) }}>{p}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        {state !== null && Object.entries(state.options).map(([key, options]) => (
+          <div className="group" key={key}>
+            <div className="label">{LABELS[key] ?? key}</div>
+            <div className="opts">
+              {options.map((option) => {
+                const current = typeof state.settings[key] === 'boolean'
+                  ? (state.settings[key] === true ? 'on' : 'off')
+                  : String(state.settings[key])
+                return (
+                  <button
+                    key={option.value}
+                    aria-pressed={current === option.value}
+                    disabled={!option.built || busy}
+                    title={option.note ?? ''}
+                    onClick={() => void change(key, typeof state.settings[key] === 'boolean' ? option.value === 'on' : option.value)}
+                  >
+                    {option.label}{option.built ? '' : ' — not built yet'}
+                  </button>
+                )
+              })}
+            </div>
+            {options.some((o) => !o.built) && (
+              <div className="note">{options.filter((o) => !o.built).map((o) => `${o.label}: ${o.note ?? 'unbuilt'}`).join(' · ')}</div>
+            )}
+          </div>
+        ))}
+        <div className="note">
+          Changes apply on the next render. Timeline scrubbing, point-and-instruct notes and drag
+          editing arrive with the overlay editor.
+        </div>
+      </div>
     </div>
   )
 }

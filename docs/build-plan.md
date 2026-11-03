@@ -246,6 +246,32 @@ Wire `review.submit` to `agent.followup` (from A4), including the `<video_review
 
 ---
 
+## 9a. PANE FIRST (re-prioritised, session 7)
+
+The owner asked directly whether the GUI pane — where they choose font, orientation, background,
+graphics and pacing — is coming. It is, and it moves to the front, because it is the product; the
+engine only matters through it.
+
+**Order changed to:** finish font + pacing (engine bits the pane needs) → **pane v1** → vertical →
+graphics → background.
+
+**Pane v1 scope, deliberately narrow:** a real "Studio" tab that shows the current project state,
+lets the owner change the settings that actually work today (captions on/off, caption style, font,
+sound polish, pacing), triggers a re-render, and plays the result **inside the pane**. Every control
+maps to a working engine feature; anything not built is shown as "not built yet" rather than a
+switch that lies.
+
+Steps:
+
+| Step | What | Verification |
+|---|---|---|
+| **S1** | `host-server`: `GET /video/api/state`, `POST /video/api/settings`, `POST /video/api/render`, `GET /video/media/...` (Range) | curl each endpoint; traversal rejected; settings round-trip persists to `project.json` |
+| **S2** | Pane UI: settings panel + video player + render button + progress | headless probe asserts controls render, a settings change persists, and a render produces a playable file |
+| **S3** | Disabled states for unbuilt features, labelled honestly | probe asserts each unbuilt feature is visibly marked, not clickable |
+
+Deferred inside the pane (still planned): timeline scrubbing, click-to-instruct notes, per-overlay drag.
+Those are P4 and depend on the overlay compositing work.
+
 ## 9b. Phase P — the review round (added session 6, supersedes the ordering in §8/§9 for now)
 
 The owner watched the first cut and gave eight observations (`development-plan.md` §3.5). They outrank

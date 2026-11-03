@@ -9,6 +9,9 @@
     },
     {
       "path": "./packages/host-render"
+    },
+    {
+      "path": "./packages/host-server"
     }
   ]
 }

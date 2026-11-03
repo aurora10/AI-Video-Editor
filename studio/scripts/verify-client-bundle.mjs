@@ -30,9 +30,17 @@ if (typeof captured.factory !== 'function') throw new Error('entry has no factor
 /** Stand-ins for the platform modules the shell provides through the module table. */
 const stubRequire = (specifier) => {
   if (specifier === 'react') {
+    // Enough of React to let a real component run one render pass outside a browser.
+    // Effects are not executed: this checks evaluation and the registration contract,
+    // not lifecycle behaviour (the UI probe does that in a real browser).
     return {
       useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
       useEffect: () => {},
+      useLayoutEffect: () => {},
+      useCallback: (fn) => fn,
+      useMemo: (fn) => fn(),
+      useRef: (value) => ({ current: value }),
+      useReducer: (_r, initial) => [initial, () => {}],
       createElement: (type, props, ...children) => ({ type, props, children }),
       version: 'stub',
       default: {},
@@ -47,6 +55,13 @@ const stubRequire = (specifier) => {
   }
   throw new Error(`bundle required unexpected module: ${specifier}`)
 }
+
+// A real pane fetches on mount and may touch storage; give it inert stand-ins so the
+// factory can be evaluated without a browser.
+globalThis.fetch = async () => ({ ok: true, json: async () => ({ ok: true, value: { projects: [] } }) })
+globalThis.localStorage = { getItem: () => null, setItem: () => {}, removeItem: () => {} }
+globalThis.setInterval = () => 0
+globalThis.clearInterval = () => {}
 
 const exports = captured.factory(stubRequire)
 

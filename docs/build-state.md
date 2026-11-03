@@ -84,6 +84,26 @@ Last updated: session 6 — **first end-to-end cut rendered and verified.** Prox
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## Studio pane v1 is live (session 7)
+
+The owner asked whether the GUI pane is coming. It is the product, so it moved to the front and a
+working first version now exists in the harness at `:3099` → **Studio** tab.
+
+**Built and verified** (`host-server` + `client-pane`):
+
+| Piece | Verification |
+|---|---|
+| `GET /video/api/projects`, `state` | returns project, settings, option catalogue, latest render, live job |
+| `POST /video/api/settings` | round-trips into `project.json`; an unbuilt value is **refused with the reason** instead of silently stored |
+| `POST /video/api/render` | spawns the renderer; `state` reports progress; produced `out/test-vid-from-pane.mp4` (7.5 MB) end to end |
+| `GET /video/media/<project>/out/<file>` | **206 + Content-Range** (`bytes 0-1023/7499705`, `video/mp4`); traversal → 404 |
+
+Pane UI verified in a real browser (headless probe): 8 control groups, 15 enabled controls, and 7
+options honestly disabled with their reason attached — Inter, Manrope, Calm pace, Vertical 9:16,
+Blurred background, Studio backdrop, B-roll. The player streams the latest render.
+
+Deliberately deferred inside the pane: timeline scrubbing, click-to-instruct notes, drag editing (P4).
+
 ## Owner review of the first cut (session 6) — the work list
 
 Eight observations, each now a numbered requirement in `development-plan.md` §3.5 and a step in
