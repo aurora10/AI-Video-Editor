@@ -147,10 +147,11 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
 
         const args = ['-s', 'tsx', 'scripts/render-clip.ts', slug,
           '--from', body.from ?? '4:47', '--to', body.to ?? '5:47', '--label', label,
-          '--font', settings.font,
           '--pace', settings.pace,
           '--orientation', settings.orientation,
           '--background', settings.background,
+          '--graphics', settings.graphics === 'none' ? 'off' : 'on',
+          '--font', settings.font,
           ...(settings.voicePolish ? [] : ['--no-voice-polish']),
           ...(settings.captions ? ['--captions', settings.captionStyle === 'plain' ? 'none' : settings.captionStyle] : ['--no-captions'])]
         const child = spawn('pnpm', args, { cwd: config.workspaceRoot, env: { ...process.env } })

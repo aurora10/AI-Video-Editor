@@ -10,7 +10,8 @@ import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { Transcript } from '@dsh-video/core'
 import { chinAt, detectFaces, detectSilence, projectPaths, refineWordTimings } from '../packages/host-ingest/src/index.js'
-import { compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, fitSizePx, planCaptionPages, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
+import { compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, fitSizePx, planCaptionPages, planGraphics, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
+import { EMPTY_GRAPHICS, GraphicsTrack } from '@dsh-video/core'
 
 const argv = process.argv.slice(2)
 const slug = argv.find((a) => !a.startsWith('--'))
@@ -181,43 +182,79 @@ console.log(`  voice: ${voice.description}`)
 // A grade is only meaningful as a *frame treatment*; for the fill case it applies to the
 // composited result, for the plain case to the frame itself.
 const gradeChain = background === 'studio' ? ['eq=brightness=-0.06:saturation=0.82', 'vignette=PI/5'] : []
-// Grade first, captions last: applying the grade after the burn dimmed and vignetted the type
-// itself (caption pixels peaked at 225 instead of 255 under the studio look).
-const tail = [...gradeChain, ...(withCaptions ? [`ass=${burnAssPath}:fontsdir=${style.fontDir}`] : [])]
 
+// ---- graphics plan -------------------------------------------------------
+// Composited between the frame treatment and the captions: a graphic may sit under a caption,
+// but a caption must never be dimmed by a grade (an earlier version applied the studio grade
+// after the burn and greyed the type out).
+const graphicsPath = join(paths.edit, 'graphics.json')
+const graphicsTrack: GraphicsTrack = existsSync(graphicsPath)
+  ? GraphicsTrack.parse(JSON.parse(await readFile(graphicsPath, 'utf8')))
+  : EMPTY_GRAPHICS
+const graphicsRequested = opt('graphics', 'on') !== 'off'
+const graphicsOn = graphicsRequested && graphicsTrack.graphics.length > 0
+console.log(graphicsOn
+  ? `  graphics: ${graphicsTrack.graphics.length} item(s) from edit/graphics.json`
+  : `  graphics: none${existsSync(graphicsPath) ? ' (edit/graphics.json has no items)' : ' (no edit/graphics.json)'}`)
+
+const gplan = graphicsOn
+  ? planGraphics(graphicsTrack, 'vgbase', {
+      width: W,
+      height: H,
+      fontFamily: font.family,
+      fontDir: font.dir,
+    })
+  : { extraInputs: [] as string[], statements: [] as string[], textAss: null as string | null, finalLabel: 'vgbase' }
+
+const graphicsAssPath = gplan.textAss === null ? null : `/tmp/dsh-${slug}-${label}-graphics.ass`
+if (graphicsAssPath !== null && gplan.textAss !== null) await writeFile(graphicsAssPath, gplan.textAss)
+
+// ---- filter graph --------------------------------------------------------
 let filter: string
+// Stage order is deliberate: frame treatment → graphics → captions → encode.
+// Each optional stage is a list entry, so an absent one leaves no dangling comma.
+const afterGraphicsLabel = gplan.finalLabel
+const finalStage = [
+  'null',
+  ...(graphicsAssPath === null ? [] : [`ass=${graphicsAssPath}:fontsdir=${font.dir}`]),
+  ...(withCaptions ? [`ass=${burnAssPath}:fontsdir=${style.fontDir}`] : []),
+]
+const finalChain = finalStage.length === 1 ? '' : `,${finalStage.slice(1).join(',')}`
+
+let base: string[]
 if (wantsFill) {
-  // Fit the WHOLE frame and fill the remainder with a blurred copy of itself.
-  //
-  // Cropping a 9:16 window out of 16:9 keeps only ~32% of the frame's width; on a seated
-  // talking head that loses the room and half the gesture. A blurred self-background is the
-  // standard vertical treatment for landscape footage, needs no subject matte, and therefore
+  // Fit the WHOLE frame and fill the remainder with a blurred copy of itself. Cropping a 9:16
+  // window out of 16:9 keeps only ~32% of the frame width; on a seated talking head that loses
+  // the room and half the gesture. A blurred self-background needs no subject matte, so it
   // cannot produce halos around hair or hands.
   const blurSigma = background === 'studio' ? 42 : 28
-  const composite = [...tail, 'format=yuv420p'].join(',')
-  filter = [
+  const graded = [...gradeChain, 'format=yuv420p'].join(',')
+  base = [
     `[0:v]select='${sel}',setpts=N/FRAME_RATE/TB,split=2[bg][fg]`,
     `[bg]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=${blurSigma},eq=brightness=-0.18:saturation=0.55[bgv]`,
     `[fg]scale=${W}:${H}:force_original_aspect_ratio=decrease:flags=lanczos[fgs]`,
-    `[bgv][fgs]overlay=(W-w)/2:(H-h)/2,${composite}[outv]`,
-    `[1:a]aselect='${sel}',asetpts=N/SR/TB,${voice.filters}[outa]`,
-  ].join(';')
+    `[bgv][fgs]overlay=(W-w)/2:(H-h)/2,${graded}[vgbase]`,
+  ]
 } else {
   const chain = [
     `select='${sel}'`,
     'setpts=N/FRAME_RATE/TB',
     ...(orientation === 'vertical' ? [`crop=${cropW}:${SRC_H}:${cropX}:0`, `scale=${W}:${H}:flags=lanczos`] : []),
-    ...tail,
-  ].filter((part) => part !== '')
-  filter = [
-    `[0:v]${chain.join(',')}[outv]`,
-    `[1:a]aselect='${sel}',asetpts=N/SR/TB,${voice.filters}[outa]`,
-  ].join(';')
+    ...gradeChain,
+  ]
+  base = [`[0:v]${chain.join(',')}[vgbase]`]
 }
+
+filter = [
+  ...base,
+  ...gplan.statements,
+  `[${afterGraphicsLabel}]null${finalChain}[outv]`,
+  `[1:a]aselect='${sel}',asetpts=N/SR/TB,${voice.filters}[outa]`,
+].join(';')
 
 const started = Date.now()
 const r = spawnSync('ffmpeg', [
-  '-hide_banner', '-v', 'error', '-y', '-i', proxy, '-i', src.proxies.audio,
+  '-hide_banner', '-v', 'error', '-y', '-i', proxy, '-i', src.proxies.audio, ...gplan.extraInputs,
   '-filter_complex', filter, '-map', '[outv]', '-map', '[outa]',
   '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p',
   '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-movflags', '+faststart', outPath,

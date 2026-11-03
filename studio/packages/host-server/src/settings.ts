@@ -74,7 +74,7 @@ export const OPTIONS: Record<keyof RenderSettings, OptionSpec[]> = {
   ],
   graphics: [
     { value: 'none', label: 'No graphics', built: true },
-    { value: 'broll', label: 'B-roll + graphics', built: false, note: 'graphics layer not built' },
+    { value: 'broll', label: 'Graphics layer', built: true, note: 'composites everything in edit/graphics.json (text cards, insets, B-roll video)' },
   ],
 }
 
