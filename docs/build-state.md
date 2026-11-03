@@ -2,7 +2,7 @@
 
 One row per step. **A step is `pass` only when the verification command's output is pasted here.** States: `todo · wip · pass · fail · blocked · cut`.
 
-Last updated: session 6 — **first end-to-end cut rendered and verified.** Proxies done (preview 1963.7 s, scrub 13.8 s), captions burned, output at `studio/out/test-vid-option2.mp4`.
+Last updated: session 11 — **all eight of the owner's notes are done**, including the timeline. The pane and the renderer are feature-complete for short-form; what remains is window selection, a B-roll library, and drag-to-position for graphics.
 
 ## Gates
 
@@ -68,7 +68,7 @@ Last updated: session 6 — **first end-to-end cut rendered and verified.** Prox
 |---|---|---|---|
 | F1 shell + playback | todo | — | checkpoint H3 |
 | F2 overlay compositing | todo | — | geometry asserted numerically |
-| F3 timeline + notes rail | todo | — | checkpoint H5 |
+| F3 timeline + notes rail | **pass** | scrub bar with playhead, drag selection, note pins; a note at program 30.0 s suppressed 12 caption pages: ink 0 inside its window, 1073–1972 outside | session 10 |
 | F4 drag experiment (3h timebox) | todo | — | **optional by design** — Q3 deferred; cut it if it does not feel good |
 | F5 lint badges | todo | — | — |
 
@@ -83,6 +83,56 @@ Last updated: session 6 — **first end-to-end cut rendered and verified.** Prox
 | H1 derivations + reframe | todo | — | — |
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
+
+## Sessions 10–11: the last three of the eight notes
+
+### Mumbles (session 11)
+
+`detectMumbles` removes three different things, each with its own justification: **sound with no
+transcribed word** (the largest source — 29 regions / 11.8 s on the reference clip), hesitations,
+isolated discourse markers, and false starts. Whole clip: **24 cuts, 8.5 s**.
+
+The rule the owner's own footage dictated: **`это` is never cut**. It appears 15 times and is almost
+always content ("это полнейшая чушь", "что это означает"). A generic filler list would have broken
+those sentences.
+
+Invariant verified: of 14 transcribed words removed, **14 were justified by a word-level rule and 0
+were swallowed by the bulk "no words here" rule**. 21 unit tests pass.
+
+### Timeline (session 10)
+
+A scrub bar with playhead, drag selection, colour-coded note pins and a composer with five note
+kinds. Notes are stored in **source time**, not program time: program time shifts on every re-cut, so
+a note saved in program time would slide onto a different sentence after the next render. A note
+whose exact moment gets cut clamps to the nearest surviving edge rather than vanishing.
+
+Three bugs found while building it:
+
+| Bug | Consequence |
+|---|---|
+| **`pnpm typecheck` never covered `scripts/`** (no tsconfig included it) | the renderer had been type-unchecked for eight sessions; adding `tsconfig.scripts.json` immediately found an undefined variable and two use-before-declaration errors |
+| captions "hold until the next page" painted straight across a window a `hide-captions` note had cleared | the hold now stops at the next suppressed range |
+| boolean settings were stored as the strings `'on'`/`'off'` | `'off'` was truthy, so **captions could never be turned off** |
+
+### Image notes (session 11)
+
+`GET /video/api/assets` lists `projects/<slug>/assets`; the pane offers a picker when the Image note
+kind is chosen. Placement is derived from the **face track**, not a fixed corner: the speaker's face
+centre is at x=527 of 960, so the note's image rendered at **x 76..145 (left)** with 2,564 px of ink
+inside its window and nothing outside it.
+
+Known limits, stated in the pane: fixed 32 % width, automatic side, no drag-to-position, no vertical
+control.
+
+### The habits that actually caught things
+
+1. Every control renders into a **separate folder** from deliverables — the pane once showed a
+   captionless verification control as if it were the result.
+2. Every check needs a **settings-matched control**. Three separate measurement errors came from
+   comparing against the wrong file: motion differences, a different grade, and a stale path.
+3. An **inconclusive** check is a **failure**. A run that skipped every frame once reported PASS.
+4. **The interface must not claim what it has not verified.** Three of four pane bugs were claims:
+   "this is the latest render", "this setting is applied", "captions are on".
 
 ## Owner feedback on the pane, and the four bugs behind it (session 9)
 
