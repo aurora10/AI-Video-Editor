@@ -133,6 +133,24 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
         return
       }
 
+      if (method === 'assets' && req.method === 'GET') {
+        const slug = url.searchParams.get('project')
+        if (slug === null) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project required' } }); return }
+        const dir = join(projectsRoot, slug, 'assets')
+        const entries = await readdir(dir, { withFileTypes: true }).catch(() => [])
+        const assets: { path: string; name: string; bytes: number; kind: 'image' | 'video' | 'other' }[] = []
+        for (const e of entries) {
+          if (!e.isFile()) continue
+          const full = join(dir, e.name)
+          const size = (await stat(full).catch(() => null))?.size ?? 0
+          const ext = e.name.slice(e.name.lastIndexOf('.')).toLowerCase()
+          const kind = ['.png', '.jpg', '.jpeg', '.webp'].includes(ext) ? 'image' : ['.mp4', '.mov', '.m4v'].includes(ext) ? 'video' : 'other'
+          assets.push({ path: `projects/${slug}/assets/${e.name}`, name: e.name, bytes: size, kind })
+        }
+        json(res, 200, { ok: true, value: { assets } })
+        return
+      }
+
       if (method === 'notes' && req.method === 'GET') {
         const slug = url.searchParams.get('project')
         if (slug === null) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project required' } }); return }
@@ -143,14 +161,15 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
 
       if (method === 'notes' && req.method === 'POST') {
         const body = (await readBody(req)) as {
-          project?: string; kind?: string; progStartMs?: number; progEndMs?: number; text?: string
+          project?: string; kind?: string; progStartMs?: number; progEndMs?: number; text?: string; asset?: string
         }
         if (body.project === undefined || body.kind === undefined || body.progStartMs === undefined) {
           json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project, kind and progStartMs required' } })
           return
         }
         const note = await addNote(projectsRoot, body.project, {
-          kind: body.kind, progStartMs: body.progStartMs, progEndMs: body.progEndMs ?? body.progStartMs + 2000, text: body.text ?? '',
+          kind: body.kind, progStartMs: body.progStartMs, progEndMs: body.progEndMs ?? body.progStartMs + 2000,
+          text: body.text ?? '', ...(body.asset === undefined ? {} : { asset: body.asset }),
         })
         json(res, 200, { ok: true, value: { note } })
         return

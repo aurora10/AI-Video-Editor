@@ -80,7 +80,7 @@ export function programToSource(regions: Region[], progMs: number): number | und
 export async function addNote(
   projectsRoot: string,
   slug: string,
-  input: { kind: string; progStartMs: number; progEndMs: number; text: string },
+  input: { kind: string; progStartMs: number; progEndMs: number; text: string; asset?: string },
 ): Promise<Note> {
   const notes = await readNotes(projectsRoot, slug)
   const nextId = `n-${String(notes.length + 1).padStart(4, '0')}`
@@ -97,6 +97,7 @@ export async function addNote(
     srcStartMs: Math.round(srcStart),
     srcEndMs: Math.round(Math.max(srcEnd, srcStart + 300)),
     text: input.text,
+    ...(input.asset === undefined ? {} : { asset: input.asset }),
     createdAt: new Date().toISOString(),
     status: 'open',
     authoredProgramMs: Math.round(input.progStartMs),

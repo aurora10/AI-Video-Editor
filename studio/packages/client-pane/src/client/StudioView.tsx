@@ -76,6 +76,7 @@ const STYLES = `
 .dshstudio .timeline .pin.free { background: #c792ea; }
 .dshstudio .time { font: 12px ui-monospace, monospace; opacity: .7; }
 .dshstudio .composer { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.dshstudio .notesel { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid #3a3a3a; background: #1d1d1d; color: inherit; max-width: 200px; }
 .dshstudio .noteinput { flex: 1 1 220px; min-width: 160px; font: inherit; padding: 6px 9px; border-radius: 8px; border: 1px solid #3a3a3a; background: #1d1d1d; color: inherit; }
 .dshstudio .notes { display: flex; flex-direction: column; gap: 3px; max-height: 130px; overflow-y: auto; }
 .dshstudio .noterow { display: flex; align-items: center; gap: 8px; font-size: 12px; background: #171717; border: 1px solid #2a2a2a; border-radius: 6px; padding: 4px 8px; }
@@ -141,6 +142,8 @@ export function StudioView(props: StudioViewProps) {
   const [selection, setSelection] = useState<{ from: number; to: number } | null>(null)
   const [noteKind, setNoteKind] = useState('cut')
   const [noteText, setNoteText] = useState('')
+  const [assets, setAssets] = useState<{ path: string; name: string; kind: string }[]>([])
+  const [chosenAsset, setChosenAsset] = useState('')
   const [dragging, setDragging] = useState<number | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
@@ -166,6 +169,18 @@ export function StudioView(props: StudioViewProps) {
       } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     })()
   }, [load])
+
+  // available images/videos for 'show this next to me'
+  useEffect(() => {
+    if (slug === '') return
+    void (async () => {
+      try {
+        const { assets: list } = await api<{ assets: { path: string; name: string; kind: string }[] }>(`assets?project=${encodeURIComponent(slug)}`)
+        setAssets(list.filter((a) => a.kind === 'image' || a.kind === 'video'))
+        setChosenAsset((prev) => (prev === '' ? list.find((a) => a.kind === 'image')?.path ?? '' : prev))
+      } catch { setAssets([]) }
+    })()
+  }, [slug])
 
   // poll while a render runs
   useEffect(() => {
@@ -224,7 +239,10 @@ export function StudioView(props: StudioViewProps) {
     try {
       await api('notes', {
         method: 'POST',
-        body: JSON.stringify({ project: slug, kind: noteKind, progStartMs: from, progEndMs: to, text: noteText }),
+        body: JSON.stringify({
+          project: slug, kind: noteKind, progStartMs: from, progEndMs: to, text: noteText,
+          ...(noteKind === 'image-inset' && chosenAsset !== '' ? { asset: chosenAsset } : {}),
+        }),
       })
       setNoteText('')
       setSelection(null)
@@ -299,12 +317,21 @@ export function StudioView(props: StudioViewProps) {
               {selection !== null && selection.to > selection.from + 50 && ` · selected ${fmt(selection.from)}–${fmt(selection.to)}`}
             </div>
             <div className="composer">
-              {(['cut', 'hide-captions', 'text-card', 'free'] as const).map((k) => (
+              {(['cut', 'hide-captions', 'text-card', 'image-inset', 'free'] as const).map((k) => (
                 <button key={k} aria-pressed={noteKind === k} onClick={() => setNoteKind(k)}>{NOTE_LABEL[k]}</button>
               ))}
+              {noteKind === 'image-inset' && (
+                assets.length === 0
+                  ? <span className="note">no images in projects/…/assets/ yet — drop one there</span>
+                  : (
+                    <select className="notesel" value={chosenAsset} onChange={(e) => setChosenAsset(e.target.value)}>
+                      {assets.map((a) => <option key={a.path} value={a.path}>{a.name}</option>)}
+                    </select>
+                  )
+              )}
               <input
                 className="noteinput"
-                placeholder={noteKind === 'cut' ? 'why? (optional)' : noteKind === 'hide-captions' ? 'why? (optional)' : 'what should appear / what to change'}
+                placeholder={noteKind === 'cut' || noteKind === 'hide-captions' ? 'why? (optional)' : noteKind === 'image-inset' ? 'caption for the image (optional)' : 'what should appear / what to change'}
                 value={noteText}
                 onChange={(e) => setNoteText(e.target.value)}
               />

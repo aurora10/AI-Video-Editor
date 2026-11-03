@@ -7,6 +7,15 @@
 import type { Graphic, Note } from '@dsh-video/core'
 import type { CompactedWindow } from './cut.js'
 
+export interface ApplyOptions {
+  /**
+   * Where to put an image a note asks for. "next to me" is only meaningful relative to the
+   * speaker, so the renderer passes the side their face is furthest from.
+   */
+  imageLayout?: 'inset-tl' | 'inset-tr' | 'inset-bl' | 'inset-br'
+  imageWidthPct?: number
+}
+
 export interface AppliedNotes {
   /** Source spans to remove. */
   extraCuts: [number, number][]
@@ -54,7 +63,7 @@ export const toProgramNear = (win: CompactedWindow, srcMs: number): number | und
  *   instead of dropping it: the author meant "around here", not "only if this exact millisecond
  *   survives".
  */
-export function applyNotes(notes: Note[], win: CompactedWindow, clampToEdge = true): AppliedNotes {
+export function applyNotes(notes: Note[], win: CompactedWindow, opts: ApplyOptions = {}, clampToEdge = true): AppliedNotes {
   const out: AppliedNotes = { extraCuts: [], captionSuppressed: [], graphics: [], unhandled: [], cutCount: 0 }
 
   const mapSpan = (a: number, b: number): [number, number] | undefined => {
@@ -108,9 +117,9 @@ export function applyNotes(notes: Note[], win: CompactedWindow, clampToEdge = tr
             kind: 'image',
             startMs: span[0],
             endMs: span[1],
-            layout: 'inset-tr',
+            layout: opts.imageLayout ?? 'inset-tr',
             motion: 'fade',
-            widthPct: 34,
+            widthPct: opts.imageWidthPct ?? 34,
             radiusPx: 16,
             src: note.asset,
           })

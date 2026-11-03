@@ -77,14 +77,6 @@ if (win.regions.length === 0) {
 }
 const words = shiftWords(transcript.words, win, fromMs, toMs)
 
-// --- notes → instructions -------------------------------------------------
-// Everything except 'cut' is mapped onto the program timeline here; 'cut' already went into the
-// window above, because a cut changes the timeline everything else is measured against.
-const applied = applyNotes(storedNotes, win)
-if (storedNotes.length > 0) {
-  console.log(`  notes: ${storedNotes.length} stored · ${applied.cutCount} cut · ${applied.captionSuppressed.length} hide-captions · ${applied.graphics.length} graphics · ${applied.unhandled.length} for the agent`)
-}
-for (const n of applied.unhandled) console.log(`    · needs the agent: "${n.text.slice(0, 70)}"`)
 const orientation = (opt('orientation', 'horizontal') as 'horizontal' | 'vertical')
 const background = (opt('background', 'none') as 'none' | 'blur' | 'studio')
 /** Vertical + a background treatment means "fit the whole frame", not "crop a strip out of it". */
@@ -147,6 +139,21 @@ const transform = wantsFill
   : { sx: W / (orientation === 'vertical' ? cropW : SRC_W), sy: H / SRC_H, ox: orientation === 'vertical' ? -cropX * (W / cropW) : 0, oy: 0 }
 const medianChin = Math.round(transform.oy + medianChinSrc * transform.sy)
 const topPx = Math.min(medianChin + gapPx, Math.round(H * 0.82))
+
+// --- notes → instructions -------------------------------------------------
+// Everything except 'cut' is mapped onto the program timeline here; 'cut' already went into the
+// window above, because a cut changes the timeline everything else is measured against.
+// "next to me": place an image on whichever side the speaker's face is furthest from, using the
+// face track rather than a fixed corner. The face sits at medianFaceX of the source frame; if the
+// speaker is right of centre, the empty space is on the left.
+const faceSideRight = medianFaceX > SRC_W / 2
+const imageLayout: 'inset-tl' | 'inset-tr' = faceSideRight ? 'inset-tl' : 'inset-tr'
+const applied = applyNotes(storedNotes, win, { imageLayout, imageWidthPct: 32 })
+if (storedNotes.length > 0) {
+  console.log(`  notes: ${storedNotes.length} stored · ${applied.cutCount} cut · ${applied.captionSuppressed.length} hide-captions · ${applied.graphics.length} graphics · ${applied.unhandled.length} for the agent`)
+}
+for (const n of applied.unhandled) console.log(`    · needs the agent: "${n.text.slice(0, 70)}"`)
+
 
 // --- captions -------------------------------------------------------------
 // One size for every page. The word-by-word read is one line, so the size is bounded by
