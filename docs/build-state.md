@@ -84,6 +84,26 @@ Last updated: session 6 — **first end-to-end cut rendered and verified.** Prox
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## Owner feedback on the pane, and the four bugs behind it (session 9)
+
+The owner tried the pane and reported: no captions; clicking buttons changes nothing; switching to
+horizontal does nothing; background too dark. All four were real.
+
+| Report | Actual cause | Fix |
+|---|---|---|
+| "I see no captions" | the pane displayed **my own verification control** (`--no-captions`) because "latest render" was a filename heuristic (newest mp4 not named `*nocaps*`) | the server now records `project.json.lastRender` (file, settings, captions flag) when a render finishes; `state` returns that and nothing else. Controls render into `out/controls/` so they can never be watched |
+| "clicking buttons does nothing" | settings persisted but nothing re-rendered, and nothing said so | the pane marks itself dirty and auto-renders on change (toggleable), with a loud "Settings changed — press Render" banner when auto is off |
+| "switching vertical→horizontal does nothing" | horizontal + a blurred background was **rejected** by my validation, and the rejection surfaced only in a corner of the panel | dependent settings are now **coerced with an explanation banner** ("background reset to None — only applies to vertical") instead of failing |
+| "background is too dark" | my grade: brightness −0.18 and saturation 0.55 on an already dim room | measured fill luma **9 → 21 → 42**; the darkening is gone entirely and the fill is now slightly brighter than neutral |
+
+Verified after: the deliverable the pane shows is `test-vid-deliverable.mp4`, 540×960, with 681 bright
+pixels in the caption band at t=20 s (i.e. captions on screen), and the pane reports the file the API
+recorded rather than a guess.
+
+**Lesson:** three of these are the same mistake in different clothes — a UI that shows state it has
+not verified. The pattern to keep: when the interface claims something (this is the latest render,
+this setting is applied), the claim must come from a recorded fact, not from an inference.
+
 ## Outside review, and what it caught (session 8)
 
 Acting on the gstack conversation's one useful idea, a **fresh agent with no context reviewed the

@@ -10,7 +10,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http'
 import { join } from 'node:path'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { readdir, stat } from 'node:fs/promises'
+import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { confine, isTrustedLocalRequest, serveFile } from './media.js'
 import { OPTIONS, readProject, writeProjectSettings, type RenderSettings } from './settings.js'
 
@@ -103,21 +103,27 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
         if (slug === null) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project query parameter required' } }); return }
         const record = await readProject(projectsRoot, slug)
         const job = jobs.get(slug)
-        // Newest render on disk for this project.
-        const outputs = (await readdir(outputDir).catch(() => []))
-          .filter((f) => f.startsWith(`${slug}-`) && f.endsWith('.mp4') && !f.includes('nocaps'))
-        let latest: { file: string; mtimeMs: number } | undefined
-        for (const f of outputs) {
-          const s = await stat(join(outputDir, f)).catch(() => null)
-          if (s !== null && (latest === undefined || s.mtimeMs > latest.mtimeMs)) latest = { file: f, mtimeMs: s.mtimeMs }
-        }
+        // The render this project last produced THROUGH THE PANE, recorded when it finished.
+        // A filename heuristic ("newest mp4 that is not called *nocaps*") showed a caption-less
+        // verification control as if it were the result, which is exactly the bug this replaces.
+        const recorded = (record as { lastRender?: { file: string; at: string; captions: boolean; settings?: Record<string, unknown> } }).lastRender
+        const latest = recorded !== undefined && existsSync(join(outputDir, recorded.file))
+          ? { file: recorded.file, mtimeMs: (await stat(join(outputDir, recorded.file))).mtimeMs }
+          : undefined
         json(res, 200, {
           ok: true,
           value: {
             project: { slug, id: record.id, name: record.name },
             settings: record.settings,
             options: OPTIONS,
-            render: latest === undefined ? null : { url: `/video/media/${slug}/out/${latest.file}`, file: latest.file, mtimeMs: latest.mtimeMs },
+            render: latest === undefined
+              ? null
+              : {
+                  url: `/video/media/${slug}/out/${latest.file}`,
+                  file: latest.file,
+                  mtimeMs: latest.mtimeMs,
+                  stale: JSON.stringify(recorded?.settings ?? {}) !== JSON.stringify(record.settings),
+                },
             job: job ?? null,
           },
         })
@@ -127,8 +133,8 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
       if (method === 'settings' && req.method === 'POST') {
         const body = (await readBody(req)) as { project?: string; patch?: Partial<RenderSettings> }
         if (body.project === undefined || body.patch === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project and patch required' } }); return }
-        const settings = await writeProjectSettings(projectsRoot, body.project, body.patch)
-        json(res, 200, { ok: true, value: { settings } })
+        const { settings, adjustments } = await writeProjectSettings(projectsRoot, body.project, body.patch)
+        json(res, 200, { ok: true, value: { settings, adjustments } })
         return
       }
 
@@ -179,8 +185,19 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
           clearTimeout(watchdog)
           if (job.status === 'failed') return
           job.status = code === 0 ? 'done' : 'failed'
-          if (code === 0) job.outputUrl = `/video/media/${slug}/out/${slug}-${label}.mp4`
-          else job.error = job.log.slice(-5).join(' | ')
+          if (code === 0) {
+            job.outputUrl = `/video/media/${slug}/out/${slug}-${label}.mp4`
+            // Record the deliverable (and the settings that produced it) so the pane shows the
+            // right file and can tell whether the recorded render still matches the settings.
+            void (async () => {
+              try {
+                const path = join(projectsRoot, slug, 'project.json')
+                const fresh = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
+                fresh.lastRender = { file: `${slug}-${label}.mp4`, label, at: new Date().toISOString(), captions: settings.captions, settings }
+                await writeFile(path, JSON.stringify(fresh, null, 2) + '\n')
+              } catch { /* a missing record must not fail the render result */ }
+            })()
+          } else job.error = job.log.slice(-5).join(' | ')
         })
         json(res, 202, { ok: true, value: { job: { slug, label, status: job.status } } })
         return

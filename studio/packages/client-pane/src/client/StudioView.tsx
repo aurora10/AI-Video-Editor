@@ -14,8 +14,9 @@ interface StatePayload {
   project: { slug: string; id: string; name: string }
   settings: Settings
   options: Record<string, OptionSpec[]>
-  render: { url: string; file: string; mtimeMs: number } | null
+  render: { url: string; file: string; mtimeMs: number; stale?: boolean } | null
   job: { status: 'running' | 'done' | 'failed'; log: string[]; error?: string; outputUrl?: string } | null
+  adjustments?: string[]
 }
 
 const api = async <T,>(path: string, init?: RequestInit): Promise<T> => {
@@ -47,6 +48,11 @@ const STYLES = `
 .dshstudio .note { font-size: 11px; opacity: .45; margin-top: 4px; }
 .dshstudio .status { font-size: 12px; font-family: ui-monospace, monospace; background: #141414; border: 1px solid #2a2a2a; border-radius: 8px; padding: 8px 10px; max-height: 150px; overflow: auto; white-space: pre-wrap; }
 .dshstudio .err { color: #ff8a8a; }
+.dshstudio .pending { font-size: 13px; font-weight: 600; color: #ffd479; background: #332b12; border: 1px solid #6b5518; border-radius: 8px; padding: 8px 10px; }
+.dshstudio .note-banner { font-size: 12px; color: #9ed0ff; background: #12222f; border: 1px solid #1d4460; border-radius: 8px; padding: 7px 10px; }
+.dshstudio .primary.pulse { animation: dshstudio-pulse 1.6s ease-in-out infinite; }
+@keyframes dshstudio-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(31,122,63,.7) } 50% { box-shadow: 0 0 0 6px rgba(31,122,63,0) } }
+.dshstudio .auto { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: .75; }
 .dshstudio .ok { color: #7ddc9a; }
 `
 
@@ -78,6 +84,9 @@ export function StudioView(props: StudioViewProps) {
   const [state, setState] = useState<StatePayload | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [dirty, setDirty] = useState(false)
+  const [note, setNote] = useState<string | null>(null)
+  const [autoRender, setAutoRender] = useState(true)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const load = useCallback(async (which: string) => {
@@ -114,8 +123,16 @@ export function StudioView(props: StudioViewProps) {
     if (slug === '') return
     setBusy(true)
     try {
-      await api('settings', { method: 'POST', body: JSON.stringify({ project: slug, patch: { [key]: value } }) })
+      const result = await api<{ settings: Settings; adjustments?: string[] }>('settings', {
+        method: 'POST',
+        body: JSON.stringify({ project: slug, patch: { [key]: value } }),
+      })
+      setNote(result.adjustments?.[0] ?? null)
+      setDirty(true)
       await load(slug)
+      // A settings change only becomes visible in a new render. Leaving that implicit made the
+      // controls look broken, so by default the change re-renders immediately.
+      if (autoRender) await render()
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
 
@@ -124,6 +141,7 @@ export function StudioView(props: StudioViewProps) {
     setBusy(true)
     try {
       await api('render', { method: 'POST', body: JSON.stringify({ project: slug, from: '4:47', to: '5:47' }) })
+      setDirty(false)
       await load(slug)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
@@ -147,10 +165,15 @@ export function StudioView(props: StudioViewProps) {
         {videoUrl !== null
           ? <video ref={videoRef} src={videoUrl} controls playsInline preload="metadata" />
           : <div className="status">No render yet — press Render to make one.</div>}
+        {(dirty || state?.render?.stale === true) && state?.job?.status !== 'running' && (
+          <div className="pending">Settings changed — press Render to see the new version.</div>
+        )}
+        {note !== null && <div className="note-banner">{note}</div>}
         <div className="bar">
-          <button className="primary" onClick={() => void render()} disabled={busy || state?.job?.status === 'running' || slug === ''}>
-            {state?.job?.status === 'running' ? 'Rendering…' : 'Render'}
+          <button className={dirty || state?.render?.stale === true ? 'primary pulse' : 'primary'} onClick={() => void render()} disabled={busy || state?.job?.status === 'running' || slug === ''}>
+            {state?.job?.status === 'running' ? 'Rendering…' : dirty || state?.render?.stale === true ? 'Render changes' : 'Re-render'}
           </button>
+          <label className="auto"><input type="checkbox" checked={autoRender} onChange={(e) => setAutoRender(e.target.checked)} /> render on change</label>
           <button onClick={() => { if (videoRef.current !== null) { videoRef.current.currentTime = 0; void videoRef.current.play() } }} disabled={videoUrl === null}>Replay</button>
           {state?.render !== null && state?.render !== undefined && <span className="sub" style={{ margin: 0 }}>latest: {state.render.file}</span>}
         </div>

@@ -98,7 +98,7 @@ export async function writeProjectSettings(
   projectsRoot: string,
   slug: string,
   patch: Partial<RenderSettings>,
-): Promise<RenderSettings> {
+): Promise<{ settings: RenderSettings; adjustments: string[] }> {
   const record = await readProject(projectsRoot, slug)
   const next: RenderSettings = { ...DEFAULT_SETTINGS, ...record.settings }
   for (const [key, value] of Object.entries(patch) as [keyof RenderSettings, never][]) {
@@ -109,15 +109,16 @@ export async function writeProjectSettings(
     if (!allowed.built) throw new Error(`${key} = "${allowed.value}" is not implemented yet (${allowed.note ?? 'unbuilt'})`)
     next[key] = value
   }
-  // A background treatment needs a frame that does not fill the canvas. In horizontal delivery
-  // the frame does fill it, so a blurred background is meaningless — accepting it silently would
-  // give the user a switch that does nothing.
-  const effectiveOrientation = next.orientation
-  if (next.background !== 'none' && effectiveOrientation === 'horizontal' && next.background === 'blur') {
-    throw new Error('a blurred background only applies to vertical delivery (horizontal fills the frame); choose Vertical or Studio look')
+  // A background treatment needs a frame that does not fill the canvas. Horizontal delivery fills
+  // it, so the treatment is meaningless there. Rejecting the click made the control look broken;
+  // coercing silently would be a switch that lies. So: coerce, and report the adjustment.
+  const adjustments: string[] = []
+  if (next.orientation === 'horizontal' && next.background !== 'none') {
+    adjustments.push(`background reset to None — a ${next.background} background only applies to vertical delivery`)
+    next.background = 'none'
   }
   const onDisk = JSON.parse(await readFile(join(projectsRoot, slug, 'project.json'), 'utf8')) as Record<string, unknown>
   onDisk.settings = next
   await writeFile(join(projectsRoot, slug, 'project.json'), JSON.stringify(onDisk, null, 2) + '\n')
-  return next
+  return { settings: next, adjustments }
 }

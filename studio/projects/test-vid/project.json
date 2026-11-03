@@ -57,13 +57,29 @@
   ],
   "defaultOutputId": "vertical",
   "settings": {
-    "captions": true,
+    "captions": "on",
     "captionStyle": "word",
     "font": "oswald",
     "voicePolish": true,
     "pace": "calm",
-    "orientation": "horizontal",
-    "background": "none",
-    "graphics": "none"
+    "orientation": "vertical",
+    "background": "blur",
+    "graphics": "broll"
+  },
+  "lastRender": {
+    "file": "test-vid-deliverable.mp4",
+    "label": "deliverable",
+    "at": "2026-11-03T19:23:00.434Z",
+    "captions": "on",
+    "settings": {
+      "captions": "on",
+      "captionStyle": "word",
+      "font": "oswald",
+      "voicePolish": true,
+      "pace": "calm",
+      "orientation": "vertical",
+      "background": "blur",
+      "graphics": "broll"
+    }
   }
 }

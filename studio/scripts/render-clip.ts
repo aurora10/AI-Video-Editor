@@ -161,7 +161,10 @@ await writeFile(burnAssPath, toAss(pages, { width: W, height: H, style }))
 console.log(`  ${words.length} words → ${pages.length} caption pages (${(words.length / pages.length).toFixed(1)} words/page)`)
 
 // --- render -------------------------------------------------------------
-const outDir = resolve('out')
+// Control renders (--no-captions) exist to be compared against, never to be watched. They go to
+// their own folder, because the pane used to pick the newest file in `out/` and showed a
+// caption-less control as if it were the result.
+const outDir = resolve('out', withCaptions ? '' : 'controls')
 await mkdir(outDir, { recursive: true })
 const outPath = join(outDir, `${slug}-${label}.mp4`)
 const sel = compactSelectExpr(win)
@@ -181,7 +184,8 @@ console.log(`  voice: ${voice.description}`)
 // rejects as "No such filter: ''".
 // A grade is only meaningful as a *frame treatment*; for the fill case it applies to the
 // composited result, for the plain case to the frame itself.
-const gradeChain = background === 'studio' ? ['eq=brightness=-0.06:saturation=0.82', 'vignette=PI/5'] : []
+// Subtle on purpose: the first version darkened the frame so much the owner asked why it was black.
+const gradeChain = background === 'studio' ? ['eq=brightness=0.02:saturation=0.95', 'vignette=PI/8'] : []
 
 // ---- graphics plan -------------------------------------------------------
 // Composited between the frame treatment and the captions: a graphic may sit under a caption,
@@ -231,7 +235,7 @@ if (wantsFill) {
   const graded = [...gradeChain, 'format=yuv420p'].join(',')
   base = [
     `[0:v]select='${sel}',setpts=N/FRAME_RATE/TB,split=2[bg][fg]`,
-    `[bg]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=${blurSigma},eq=brightness=-0.18:saturation=0.55[bgv]`,
+    `[bg]scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H},gblur=sigma=${blurSigma},eq=brightness=0.04:saturation=0.85[bgv]`,
     `[fg]scale=${W}:${H}:force_original_aspect_ratio=decrease:flags=lanczos[fgs]`,
     `[bgv][fgs]overlay=(W-w)/2:(H-h)/2,${graded}[vgbase]`,
   ]
