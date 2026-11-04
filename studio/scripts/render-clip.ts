@@ -9,7 +9,7 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join, resolve } from 'node:path'
 import { Transcript } from '@dsh-video/core'
-import { chinAt, detectFaces, detectSilence, projectPaths, refineWordTimings } from '../packages/host-ingest/src/index.js'
+import { chinAt, detectFaces, detectSilence, projectPaths, refineWordTimings, run } from '../packages/host-ingest/src/index.js'
 import { applyNotes, compactSelectExpr, compactWindow, DEFAULT_CYRILLIC_CAPTION_STYLE, fitSizePx, planCaptionPages, planGraphics, resolveFont, shiftWords, toAss, voicePolishChain } from '../packages/host-render/src/index.js'
 import { CutPlan, EMPTY_GRAPHICS, GraphicsTrack, Note, decisionFor, detectMumbles, totalCutMs } from '@dsh-video/core'
 
@@ -352,13 +352,23 @@ filter = [
 ].join(';')
 
 const started = Date.now()
-const r = spawnSync('ffmpeg', [
+// Stream progress: the pane's log box is the only feedback during a render, and a silent minute
+// reads as a hang. `-progress pipe:1` gives a frame counter we can turn into a percentage.
+const expectedSeconds = win.programDurationMs / 1000
+let lastPct = -10
+const renderExit = await run('ffmpeg', [
   '-hide_banner', '-v', 'error', '-y', '-i', proxy, '-i', src.proxies.audio, ...gplan.extraInputs,
   '-filter_complex', filter, '-map', '[outv]', '-map', '[outa]',
   '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p',
-  '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-movflags', '+faststart', outPath,
-], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
-if (r.status !== 0) { console.error('ffmpeg failed:\n' + (r.stderr || '').slice(-1500)); process.exit(1) }
+  '-c:a', 'aac', '-b:a', '160k', '-ar', '48000', '-movflags', '+faststart',
+  '-progress', 'pipe:1', '-nostats', outPath,
+], {
+  onProgress: (doneSeconds: number) => {
+    const pct = Math.min(99, Math.floor((doneSeconds / Math.max(1, expectedSeconds)) * 100 / 10) * 10)
+    if (pct > lastPct) { lastPct = pct; console.log(`  …encoding ${pct}%`) }
+  },
+}).then(() => 0).catch((error: unknown) => { console.error(String(error)); return 1 })
+if (renderExit !== 0) { console.error('ffmpeg failed'); process.exit(1) }
 
 // Geometry sidecar: anything that has to reason about this render later (verifiers, the pane,
 // the future resolver) needs to know how source pixels map to output pixels. Re-deriving that

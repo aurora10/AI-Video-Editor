@@ -22,6 +22,7 @@ Reverse-engineered from a working Claude-based workflow (see `docs/reference/tra
 |---|---|
 | [`docs/build-plan.md`](./docs/build-plan.md) | **The execution plan** — steps, gates, verification commands, blockers |
 | [`docs/build-state.md`](./docs/build-state.md) | Live ledger: what is `pass`, `fail`, `blocked`, `cut` |
+| [`docs/TESTING-GUIDE.md`](./docs/TESTING-GUIDE.md) | **Hands-on testing guide** — step-by-step workflows, what you should see, and a report template |
 | [`docs/development-plan.md`](./docs/development-plan.md) | The engineering specification (requirements, architecture, data model, contracts, cost) |
 | [`docs/reverse-engineered-blueprint.md`](./docs/reverse-engineered-blueprint.md) | The reference system reconstructed: prompt, 12 style rules, template taxonomy, review-app contract, run order, economics + a 17-item gap register |
 | [`docs/hyperframes-vs-hypit-brief.md`](./docs/hyperframes-vs-hypit-brief.md) | Evidence for the toolchain decision (HyperFrames as renderer; Hypit's licence forbids the multi-tenant future) |

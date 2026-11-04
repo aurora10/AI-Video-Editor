@@ -84,6 +84,23 @@ Last updated: session 11 — **all eight of the owner's notes are done**, includ
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## Testing guide, and two UX defects found while writing it (session 14)
+
+Wrote `docs/TESTING-GUIDE.md`: seven workflows with the exact expected output at each step, the
+approval-per-command caveat for the GUI agent, a list of known limitations so they are not reported
+as bugs, and a report template.
+
+Writing it forced two fixes, because both would have read as "the app is broken":
+
+| Defect | What the tester would have seen |
+|---|---|
+| the final ffmpeg ran **synchronously**, so nothing was printed during a render | press Render, then **a silent minute** — indistinguishable from a hang. Now `-progress pipe:1` streams `…encoding 10% … 90%` into the pane's log |
+| a second render request while one was running returned **409 BUSY** as an error | changing two settings quickly showed "a render is already running" in red. Now the second is **queued**, with a blue line saying so |
+
+Also verified every control label the guide names exists in the code (14/14), that the guide's warning
+about `Instruction` notes is accurate (`· needs the agent: "make captions bigger here"` in the render
+log), and restored the project to the exact state the guide documents.
+
 ## Window selection (session 13)
 
 The window was hardcoded to `4:47–5:47` in two places, so every feature was stranded on one minute

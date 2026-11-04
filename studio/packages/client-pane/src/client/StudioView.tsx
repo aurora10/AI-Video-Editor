@@ -155,6 +155,7 @@ export function StudioView(props: StudioViewProps) {
   const [winFrom, setWinFrom] = useState('')
   const [winTo, setWinTo] = useState('')
   const [awaitingAgent, setAwaitingAgent] = useState(false)
+  const [pendingRender, setPendingRender] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const load = useCallback(async (which: string) => {
@@ -232,7 +233,21 @@ export function StudioView(props: StudioViewProps) {
       await api('render', { method: 'POST', body: JSON.stringify({ project: slug }) })
       setDirty(false)
       await load(slug)
-    } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      // Changing two settings quickly used to show "a render is already running" as an error.
+      // A second render is a queue entry: run it when the current one finishes.
+      if (/already running/i.test(message)) { setPendingRender(true); setNote('Next render queued — it will start when the current one finishes.') }
+      else setError(message)
+    } finally { setBusy(false) }
+  }
+
+  // run the queued render once nothing is running
+  const runQueued = async () => {
+    if (!pendingRender) return
+    if (state?.job?.status === 'running') return
+    setPendingRender(false)
+    await render()
   }
 
   const programMs = state?.timeline?.programMs ?? 0
@@ -307,6 +322,11 @@ export function StudioView(props: StudioViewProps) {
       if (autoRender) await render()
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
   }
+
+  useEffect(() => {
+    if (pendingRender && state?.job?.status !== 'running') void runQueued()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRender, state?.job?.status])
 
   const videoUrl = useMemo(() => {
     if (state?.job?.status === 'done' && state.job.outputUrl !== undefined) return `${state.job.outputUrl}?t=${Date.now()}`
