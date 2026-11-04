@@ -84,6 +84,35 @@ Last updated: session 11 — **all eight of the owner's notes are done**, includ
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## The pane → agent bridge (session 13)
+
+The gap that made the pane a settings panel rather than a director's chair: nothing in it could ask
+the model anything. Free-text notes were *logged* and ignored ("needs the agent").
+
+**Built and proven.** `POST /video/api/ask` resolves the session's live agent through `ctx.agents`
+and submits the request with `agent.followup`. Out-of-tree plugins cannot import the harness's
+private `@deepseek-ai/dsh-llm`, so the `UserMessage` is constructed directly — it is a plain frozen
+`{ id: uuid, role: 'user', content, source }`, and the harness's `createUserMessage` adds nothing
+this does not.
+
+Evidence from the durable session log after clicking the pane's button:
+
+```
+seq 115  agent/inbox/spliced   ← the bridge message, with project paths and current settings
+seq 116  turn/start            ← the agent opened a turn
+seq 278+ tool/call (bash)      ← it began inspecting projects/test-vid
+seq 515  approval/asked        ← blocked
+```
+
+**The one thing standing in the way is the environment, not the bridge.** The GUI session's
+`workspace-write` sandbox backend cannot start on this macOS host (`sandbox-exec: Operation not
+permitted`), so the agent's bash is refused and it asks for `danger-full-access`. That is the same
+family of problem as Chrome needing `--no-sandbox` and `~/.dsh` being unwritable: this host does not
+permit nested macOS sandboxing. One approval in the GUI unblocks it.
+
+Two buttons now exist in the pane — **Plan cuts with AI** and **Ask for a review** — and both submit
+through the bridge. What the agent does with them depends on it being able to run tools.
+
 ## AI cut planning (session 12) — can the model decide when to jump-cut?
 
 Asked by the owner. Yes, within a specific and honest boundary.

@@ -14,6 +14,7 @@ import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
 import { confine, isTrustedLocalRequest, serveFile } from './media.js'
 import { OPTIONS, readProject, writeProjectSettings, type RenderSettings } from './settings.js'
 import { addNote, deleteNote, readNotes, readTimeline } from './notes.js'
+import { askAgent, type AgentsLike } from './bridge.js'
 
 export { OPTIONS, DEFAULT_SETTINGS, readProject, writeProjectSettings } from './settings.js'
 export type { RenderSettings, OptionSpec } from './settings.js'
@@ -53,9 +54,12 @@ interface RenderJob { slug: string; label: string; startedAt: number; status: 'r
 const jobs = new Map<string, RenderJob>()
 
 export const name = 'dsh-video-host-server'
-export const inject = ['webServer']
+export const inject = ['webServer', 'agents']
 
-export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, label?: string) => void }, config: HostServerConfig): void {
+export function apply(
+  ctx: { webServer: WebServerLike; effect: (fn: () => void, label?: string) => void; agents?: AgentsLike },
+  config: HostServerConfig,
+): void {
   const projectsRoot = join(config.workspaceRoot, 'projects')
   const outputDir = config.outputDir ?? join(config.workspaceRoot, 'out')
 
@@ -180,6 +184,31 @@ export function apply(ctx: { webServer: WebServerLike; effect: (fn: () => void, 
         if (body.project === undefined || body.id === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project and id required' } }); return }
         await deleteNote(projectsRoot, body.project, body.id)
         json(res, 200, { ok: true, value: { deleted: body.id } })
+        return
+      }
+
+      if (method === 'ask' && req.method === 'POST') {
+        const body = (await readBody(req)) as { project?: string; sessionId?: string; request?: string }
+        if (body.project === undefined || body.sessionId === undefined || body.request === undefined) {
+          json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project, sessionId and request required' } })
+          return
+        }
+        if (ctx.agents === undefined) {
+          json(res, 503, { ok: false, error: { code: 'NO_AGENTS', message: 'the agent registry is not available in this deployment' } })
+          return
+        }
+        const record = await readProject(projectsRoot, body.project)
+        const result = askAgent(ctx.agents, body.sessionId, {
+          projectSlug: body.project,
+          projectRoot: join(projectsRoot, body.project),
+          request: body.request,
+          settings: record.settings as RenderSettings,
+          timeline: await readTimeline(projectsRoot, body.project),
+          openNotes: (await readNotes(projectsRoot, body.project)).filter((n) => n.status !== 'done').length,
+        })
+        json(res, result.ok ? 202 : 409, result.ok
+          ? { ok: true, value: { submitted: true } }
+          : { ok: false, error: { code: 'NO_AGENT', message: result.reason ?? 'unavailable' } })
         return
       }
 

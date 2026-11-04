@@ -145,6 +145,7 @@ export function StudioView(props: StudioViewProps) {
   const [assets, setAssets] = useState<{ path: string; name: string; kind: string }[]>([])
   const [chosenAsset, setChosenAsset] = useState('')
   const [dragging, setDragging] = useState<number | null>(null)
+  const [askSent, setAskSent] = useState<string | null>(null)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const load = useCallback(async (which: string) => {
@@ -249,6 +250,19 @@ export function StudioView(props: StudioViewProps) {
       setDirty(true)
       await load(slug)
       if (autoRender) await render()
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+  }
+
+  const askAgent = async (request: string) => {
+    if (slug === '' || props.sessionId === undefined) return
+    setBusy(true)
+    setAskSent(request)
+    try {
+      await api('ask', {
+        method: 'POST',
+        body: JSON.stringify({ project: slug, sessionId: String(props.sessionId), request }),
+      })
+      setNote('Sent to the agent — it will work in the chat and re-render when done.')
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
 
@@ -358,6 +372,12 @@ export function StudioView(props: StudioViewProps) {
             {state?.job?.status === 'running' ? 'Rendering…' : dirty || state?.render?.stale === true ? 'Render changes' : 'Re-render'}
           </button>
           <label className="auto"><input type="checkbox" checked={autoRender} onChange={(e) => setAutoRender(e.target.checked)} /> render on change</label>
+          <button onClick={() => void askAgent('plan-cuts')} disabled={busy || slug === ''} title="Ask the agent to judge every pause and write edit/cut-plan.json">
+            Plan cuts with AI
+          </button>
+          <button onClick={() => void askAgent('review-look')} disabled={busy || slug === ''} title="Ask the agent to watch the current render and propose improvements">
+            Ask for a review
+          </button>
           <button onClick={() => { if (videoRef.current !== null) { videoRef.current.currentTime = 0; void videoRef.current.play() } }} disabled={videoUrl === null}>Replay</button>
           {state?.render !== null && state?.render !== undefined && <span className="sub" style={{ margin: 0 }}>latest: {state.render.file}</span>}
         </div>
