@@ -84,6 +84,26 @@ Last updated: session 11 — **all eight of the owner's notes are done**, includ
 | H2 deliver | todo | — | — |
 | H3 batch | todo | — | — |
 
+## Window selection (session 13)
+
+The window was hardcoded to `4:47–5:47` in two places, so every feature was stranded on one minute
+of an eight-minute recording. It is now a **project property**: `project.json.window`, edited from
+the pane, obeyed by the renderer, with the auto-generated highlight candidates offered as one-click
+choices.
+
+Verified by switching to a different minute (6:50–7:43) and rendering it: **program 43.7 s**, captions
+present, font Oswald, 12/12 frames clean.
+
+Two defects the switch exposed — both invisible while the window never changed:
+
+| Defect | Why it appeared only now |
+|---|---|
+| `render-clip` accepted only `m:ss`; the server sends seconds (`411`) | every programmatic render would have produced `NaN` — the fail-fast added earlier turned it into an error rather than a nonsense render |
+| the caption baseline used the **median** chin | within one window the speaker sits lower and larger (chin 389–463 px around a 416 median), so the median put captions on the face for the lowest frames — 5,738 pixels of overlap, caught by the placement gate |
+
+The baseline is now the **p90** chin: one fixed position and one fixed size, clearing almost every
+frame. Re-verified on both windows (0 pixels over the face on each).
+
 ## The pane → agent bridge (session 13)
 
 The gap that made the pane a settings panel rather than a director's chair: nothing in it could ask

@@ -17,10 +17,24 @@ const argv = process.argv.slice(2)
 const slug = argv.find((a) => !a.startsWith('--'))
 if (slug === undefined) { console.error('usage: pnpm render-clip <project> --from 4:47 --to 5:47 [--label name]'); process.exit(2) }
 const opt = (n: string, d?: string) => { const i = argv.indexOf(`--${n}`); return i === -1 ? d : argv[i + 1] }
-const mmss = (v: string) => { const [m, s] = v.split(':'); return (Math.round(Number(m) * 60 + Number(s))) * 1000 }
-const fromMs = mmss(opt('from', '0:00')!)
-const toMs = mmss(opt('to', '0:45')!)
+// Accepts both "m:ss" (how a human says it) and plain seconds (how the server computes it).
+// The server passing "410.62" into an m:ss-only parser produced NaN, an empty window, and — only
+// because of the fail-fast added earlier — an error instead of a nonsense render.
+const parseTimeMs = (v: string): number => {
+  const text = v.trim()
+  if (text.includes(':')) {
+    const [m, s] = text.split(':')
+    return Math.round((Number(m) * 60 + Number(s)) * 1000)
+  }
+  return Math.round(Number(text) * 1000)
+}
+const fromMs = parseTimeMs(opt('from', '0:00')!)
+const toMs = parseTimeMs(opt('to', '0:45')!)
 const label = opt('label', 'clip')!
+if (Number.isNaN(parseTimeMs(opt('from', '0:00')!)) || Number.isNaN(parseTimeMs(opt('to', '0:45')!))) {
+  console.error(`bad --from/--to: use m:ss or seconds (got "${opt('from')}" and "${opt('to')}")`)
+  process.exit(2)
+}
 const withCaptions = !argv.includes('--no-captions')
 const captionMode = (opt('captions', 'word') as 'none' | 'word' | 'phrase')
 const fontKey = opt('font', 'inter')!
@@ -126,7 +140,13 @@ const chins = faces.samples
   })
   .map((s) => s.chinY)
   .sort((a, b) => a - b)
-const medianChinSrc = chins.length === 0 ? Math.round(SRC_H * 0.78) : Math.round(chins[Math.floor(chins.length / 2)]!)
+// Safety percentile, not the median. Within one window the speaker can sit lower and closer
+// (measured on the 6:50–7:43 window: chin ranged 389–463 px against a 416 median), and a median
+// baseline put captions on the face for the frames where the head was lowest. p90 clears almost
+// every frame while keeping one fixed position and one fixed size.
+const medianChinSrc = chins.length === 0
+  ? Math.round(SRC_H * 0.78)
+  : Math.round(chins[Math.min(chins.length - 1, Math.floor(chins.length * 0.9))]!)
 
 // Vertical reframe: crop a 9:16 window out of the landscape frame, centred on the MEDIAN face
 // position rather than chasing every frame. On a single-shot talking head the subject does not

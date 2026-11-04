@@ -18,6 +18,8 @@ interface StatePayload {
   job: { status: 'running' | 'done' | 'failed'; log: string[]; error?: string; outputUrl?: string } | null
   adjustments?: string[]
   timeline?: { programMs: number; hasTimeline: boolean }
+  window?: { fromMs: number; toMs: number; origin: string }
+  candidates?: { id: string; startMs: number; endMs: number; durationSec: number; openingLine?: string; score?: number }[]
   notes?: PaneNote[]
 }
 
@@ -76,6 +78,8 @@ const STYLES = `
 .dshstudio .timeline .pin.free { background: #c792ea; }
 .dshstudio .time { font: 12px ui-monospace, monospace; opacity: .7; }
 .dshstudio .composer { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.dshstudio .time-input { flex: 0 0 110px; min-width: 90px; }
+.dshstudio .window-group { background: #141414; border: 1px solid #262626; border-radius: 10px; padding: 10px; }
 .dshstudio .notesel { font: inherit; padding: 6px 8px; border-radius: 8px; border: 1px solid #3a3a3a; background: #1d1d1d; color: inherit; max-width: 200px; }
 .dshstudio .noteinput { flex: 1 1 220px; min-width: 160px; font: inherit; padding: 6px 9px; border-radius: 8px; border: 1px solid #3a3a3a; background: #1d1d1d; color: inherit; }
 .dshstudio .notes { display: flex; flex-direction: column; gap: 3px; max-height: 130px; overflow-y: auto; }
@@ -146,6 +150,8 @@ export function StudioView(props: StudioViewProps) {
   const [chosenAsset, setChosenAsset] = useState('')
   const [dragging, setDragging] = useState<number | null>(null)
   const [askSent, setAskSent] = useState<string | null>(null)
+  const [winFrom, setWinFrom] = useState('')
+  const [winTo, setWinTo] = useState('')
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const load = useCallback(async (which: string) => {
@@ -211,7 +217,7 @@ export function StudioView(props: StudioViewProps) {
     if (slug === '') return
     setBusy(true)
     try {
-      await api('render', { method: 'POST', body: JSON.stringify({ project: slug, from: '4:47', to: '5:47' }) })
+      await api('render', { method: 'POST', body: JSON.stringify({ project: slug }) })
       setDirty(false)
       await load(slug)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
@@ -266,6 +272,17 @@ export function StudioView(props: StudioViewProps) {
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
 
+  const setWindow = async (window: { fromMs?: number; toMs?: number; candidateIndex?: number }) => {
+    if (slug === '') return
+    setBusy(true)
+    try {
+      await api('window', { method: 'POST', body: JSON.stringify({ project: slug, ...window }) })
+      setDirty(true)
+      await load(slug)
+      if (autoRender) await render()
+    } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
+  }
+
   const removeNote = async (id: string) => {
     if (slug === '') return
     try {
@@ -300,6 +317,37 @@ export function StudioView(props: StudioViewProps) {
           <div className="pending">Settings changed — press Render to see the new version.</div>
         )}
         {note !== null && <div className="note-banner">{note}</div>}
+        <div className="group window-group">
+          <div className="label">Window — which part of the footage</div>
+          <div className="opts">
+            <input className="noteinput time-input" placeholder="from 4:47" value={winFrom}
+              onChange={(e) => setWinFrom(e.target.value)} />
+            <input className="noteinput time-input" placeholder="to 5:47" value={winTo}
+              onChange={(e) => setWinTo(e.target.value)} />
+            <button className="primary" disabled={busy || slug === ''}
+              onClick={() => {
+                const p = (v: string) => { const m = /^(\d+):(\d{1,2})$/.exec(v.trim()); return m === null ? NaN : (Number(m[1]) * 60 + Number(m[2])) * 1000 }
+                const fromMs = p(winFrom), toMs = p(winTo)
+                if (Number.isNaN(fromMs) || Number.isNaN(toMs)) { setError('use m:ss, e.g. 6:50'); return }
+                void setWindow({ fromMs, toMs })
+              }}>Use this window</button>
+          </div>
+          {state?.window !== undefined && (
+            <div className="note">
+              editing source {fmt(state.window.fromMs)}–{fmt(state.window.toMs)} ({((state.window.toMs - state.window.fromMs) / 1000).toFixed(0)}s, {state.window.origin})
+            </div>
+          )}
+          {(state?.candidates ?? []).length > 0 && (
+            <div className="opts">
+              {(state?.candidates ?? []).map((c, i) => (
+                <button key={c.id} onClick={() => void setWindow({ candidateIndex: i })} disabled={busy}
+                  title={c.openingLine ?? ''}>
+                  {fmt(c.startMs)}–{fmt(c.endMs)} · {c.durationSec}s
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         {programMs > 0 && (
           <div className="timeline-wrap">
             <div

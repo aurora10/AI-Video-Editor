@@ -15,6 +15,7 @@ import { confine, isTrustedLocalRequest, serveFile } from './media.js'
 import { OPTIONS, readProject, writeProjectSettings, type RenderSettings } from './settings.js'
 import { addNote, deleteNote, readNotes, readTimeline } from './notes.js'
 import { askAgent, type AgentsLike } from './bridge.js'
+import { readCandidates, readWindow, writeWindow } from './window.js'
 
 export { OPTIONS, DEFAULT_SETTINGS, readProject, writeProjectSettings } from './settings.js'
 export type { RenderSettings, OptionSpec } from './settings.js'
@@ -122,6 +123,8 @@ export function apply(
             settings: record.settings,
             options: OPTIONS,
             timeline: await readTimeline(projectsRoot, slug),
+            window: await readWindow(projectsRoot, slug),
+            candidates: await readCandidates(projectsRoot, slug),
             notes: await readNotes(projectsRoot, slug),
             render: latest === undefined
               ? null
@@ -212,6 +215,26 @@ export function apply(
         return
       }
 
+      if (method === 'window' && req.method === 'POST') {
+        const body = (await readBody(req)) as { project?: string; fromMs?: number; toMs?: number; candidateIndex?: number }
+        if (body.project === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project required' } }); return }
+        let fromMs = body.fromMs
+        let toMs = body.toMs
+        let origin: 'manual' | 'candidate' = 'manual'
+        if (body.candidateIndex !== undefined) {
+          const candidates = await readCandidates(projectsRoot, body.project)
+          const chosen = candidates[body.candidateIndex]
+          if (chosen === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: `no candidate ${body.candidateIndex}` } }); return }
+          fromMs = chosen.startMs
+          toMs = chosen.endMs
+          origin = 'candidate'
+        }
+        if (fromMs === undefined || toMs === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'fromMs and toMs (or candidateIndex) required' } }); return }
+        const win = await writeWindow(projectsRoot, body.project, { fromMs, toMs, origin })
+        json(res, 200, { ok: true, value: { window: win } })
+        return
+      }
+
       if (method === 'settings' && req.method === 'POST') {
         const body = (await readBody(req)) as { project?: string; patch?: Partial<RenderSettings> }
         if (body.project === undefined || body.patch === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project and patch required' } }); return }
@@ -229,12 +252,14 @@ export function apply(
         if (running !== undefined && running.status !== 'running' && Date.now() - running.startedAt > 60 * 60_000) jobs.delete(slug)
         if (running !== undefined && running.status === 'running') { json(res, 409, { ok: false, error: { code: 'BUSY', message: 'a render is already running for this project' } }); return }
         const settings = (await readProject(projectsRoot, slug)).settings as RenderSettings
+        // The window is a project property now: the pane edits it, the renderer obeys it.
+        const currentWindow = await readWindow(projectsRoot, slug)
         const label = body.label ?? `render-${Date.now()}`
         const job: RenderJob = { slug, label, startedAt: Date.now(), status: 'running', log: [] }
         jobs.set(slug, job)
 
         const args = ['-s', 'tsx', 'scripts/render-clip.ts', slug,
-          '--from', body.from ?? '4:47', '--to', body.to ?? '5:47', '--label', label,
+          '--from', body.from ?? String(currentWindow.fromMs / 1000), '--to', body.to ?? String(currentWindow.toMs / 1000), '--label', label,
           '--pace', settings.pace,
           '--fillers', settings.mumbles,
           '--orientation', settings.orientation,

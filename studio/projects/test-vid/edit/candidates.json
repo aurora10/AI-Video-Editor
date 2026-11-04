@@ -3,7 +3,7 @@
   "projectId": "prj_0e570872",
   "sourceId": "src-01",
   "targetDurationSec": 45,
-  "generatedAt": "2026-11-02T17:14:08.280Z",
+  "generatedAt": "2026-11-04T12:48:10.185Z",
   "refinement": {
     "movedOutOfSilence": 47,
     "runs": 141,
@@ -54,6 +54,20 @@
       "score": 0.73,
       "openingLine": "Значит Бог проиграл а дьявол выиграл То есть получается что дьявол получил таки себе",
       "closingLine": "он еще любовь еще очень много качеств у него безграничных"
+    },
+    {
+      "id": "cand-4",
+      "startMs": 14400,
+      "endMs": 63140,
+      "durationSec": 48.7,
+      "words": 67,
+      "wpm": 125,
+      "deadAirMs": 16700,
+      "startsClean": true,
+      "endsClean": true,
+      "score": 0.702,
+      "openingLine": "Вчера мы поспорили с одним чуваком по поводу того что происходит в загробной жизни",
+      "closingLine": "сказать что это полнейшая чушь Надо понимать что такое кальвинизм"
     }
   ]
 }

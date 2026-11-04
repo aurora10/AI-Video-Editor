@@ -67,20 +67,25 @@
     "graphics": "broll"
   },
   "lastRender": {
-    "file": "test-vid-timeline.mp4",
-    "label": "timeline",
-    "at": "2026-11-03T20:07:23.164Z",
-    "captions": "on",
+    "file": "test-vid-window1-nocaps.mp4",
+    "label": "window1-nocaps",
+    "at": "2026-11-04T12:51:23.523Z",
+    "captions": true,
     "settings": {
-      "captions": "on",
+      "captions": true,
       "captionStyle": "word",
       "font": "oswald",
       "voicePolish": true,
       "pace": "calm",
       "mumbles": "cut",
-      "orientation": "horizontal",
-      "background": "none",
+      "orientation": "vertical",
+      "background": "blur",
       "graphics": "broll"
     }
+  },
+  "window": {
+    "fromMs": 410620,
+    "toMs": 463380,
+    "origin": "candidate"
   }
 }
