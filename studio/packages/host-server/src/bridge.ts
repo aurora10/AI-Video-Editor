@@ -32,6 +32,28 @@ export interface PaneMessage {
 }
 export interface AgentsLike { get(sessionId: string): AgentLike | undefined }
 
+/**
+ * What the agent must do for a window suggestion, spelled out.
+ *
+ * The heuristic candidate list is ranked by speech density and sentence cleanliness. That is not
+ * the same as judging whether 45 seconds stands on its own as a short — which needs the meaning of
+ * the words. This asks for exactly that, and for a machine-readable file the pane can render.
+ */
+const WINDOW_REQUEST = [
+  'Task: propose 3–5 candidate windows that would each work as a STANDALONE short (35–60 s).',
+  'Judge on meaning, not on density: a complete argument or story beat, a strong first line that',
+  'works without context, and an ending that lands. Reject windows that open mid-sentence or need',
+  'the preceding minute to make sense. Windows may overlap; say why you would pick each one.',
+  '',
+  'Write the result to edit/candidates.ai.json:',
+  '{"schemaVersion":1,"generatedAt":"<iso>","candidates":[',
+  ' {"id":"ai-1","startMs":<int>,"endMs":<int>,"title":"<6 words>","openingLine":"<first 12 words>",',
+  '  "rationale":"<one sentence: why this holds attention alone>"}]}',
+  '',
+  'Boundaries must sit on sentence boundaries from analysis/transcript.*.refined.json.',
+  'Then state which one you would pick and why.',
+].join('\n')
+
 export interface AskContext {
   projectSlug: string
   projectRoot: string
@@ -56,7 +78,8 @@ export function renderAsk(ctx: AskContext): string {
     `Timeline: the last render is ${(ctx.timeline.programMs / 1000).toFixed(1)}s of program starting at source ${ctx.timeline.windowFromMs}ms. ${ctx.openNotes} note(s) stored.`,
     `</video_pane>`,
     '',
-    'Carry out the request above. Re-render when done so the pane shows the result, and report',
+    ...(ctx.request === 'suggest-windows' ? [WINDOW_REQUEST] : []),
+    "Carry out the request above. Re-render when done so the pane shows the result, and report",
     'in one or two sentences what you changed and what you decided against.',
   ].join('\n')
 }

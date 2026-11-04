@@ -59,6 +59,29 @@ export interface Candidate {
   closingLine?: string
 }
 
+export interface AiCandidate {
+  id: string
+  startMs: number
+  endMs: number
+  title?: string
+  openingLine?: string
+  rationale?: string
+}
+
+/**
+ * Windows proposed by the agent, saved to `edit/candidates.ai.json`.
+ *
+ * Kept separate from the heuristic candidates (`cut-plan`) so the pane can show both and the owner
+ * can see which came from meaning and which from speech density.
+ */
+export async function readAiCandidates(projectsRoot: string, slug: string): Promise<AiCandidate[]> {
+  const path = join(projectsRoot, slug, 'edit', 'candidates.ai.json')
+  if (!existsSync(path)) return []
+  const data = JSON.parse(await readFile(path, 'utf8')) as { candidates?: AiCandidate[] }
+  return (data.candidates ?? []).filter((c) =>
+    Number.isFinite(c.startMs) && Number.isFinite(c.endMs) && c.endMs > c.startMs)
+}
+
 /** Highlight candidates proposed by `pnpm cut-plan` (optional). */
 export async function readCandidates(projectsRoot: string, slug: string): Promise<Candidate[]> {
   const path = join(projectsRoot, slug, 'edit', 'candidates.json')

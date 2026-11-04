@@ -67,9 +67,9 @@
     "graphics": "broll"
   },
   "lastRender": {
-    "file": "test-vid-window1-nocaps.mp4",
-    "label": "window1-nocaps",
-    "at": "2026-11-04T12:51:23.523Z",
+    "file": "test-vid-ai2.mp4",
+    "label": "ai2",
+    "at": "2026-11-04T13:13:04.803Z",
     "captions": true,
     "settings": {
       "captions": true,
@@ -84,8 +84,8 @@
     }
   },
   "window": {
-    "fromMs": 410620,
-    "toMs": 463380,
+    "fromMs": 222649,
+    "toMs": 267931,
     "origin": "candidate"
   }
 }

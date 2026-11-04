@@ -15,7 +15,7 @@ import { confine, isTrustedLocalRequest, serveFile } from './media.js'
 import { OPTIONS, readProject, writeProjectSettings, type RenderSettings } from './settings.js'
 import { addNote, deleteNote, readNotes, readTimeline } from './notes.js'
 import { askAgent, type AgentsLike } from './bridge.js'
-import { readCandidates, readWindow, writeWindow } from './window.js'
+import { readAiCandidates, readCandidates, readWindow, writeWindow } from './window.js'
 
 export { OPTIONS, DEFAULT_SETTINGS, readProject, writeProjectSettings } from './settings.js'
 export type { RenderSettings, OptionSpec } from './settings.js'
@@ -125,6 +125,7 @@ export function apply(
             timeline: await readTimeline(projectsRoot, slug),
             window: await readWindow(projectsRoot, slug),
             candidates: await readCandidates(projectsRoot, slug),
+            aiCandidates: await readAiCandidates(projectsRoot, slug),
             notes: await readNotes(projectsRoot, slug),
             render: latest === undefined
               ? null
@@ -216,11 +217,19 @@ export function apply(
       }
 
       if (method === 'window' && req.method === 'POST') {
-        const body = (await readBody(req)) as { project?: string; fromMs?: number; toMs?: number; candidateIndex?: number }
+        const body = (await readBody(req)) as { project?: string; fromMs?: number; toMs?: number; candidateIndex?: number; aiCandidateIndex?: number }
         if (body.project === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: 'project required' } }); return }
         let fromMs = body.fromMs
         let toMs = body.toMs
         let origin: 'manual' | 'candidate' = 'manual'
+        if (body.aiCandidateIndex !== undefined) {
+          const ai = await readAiCandidates(projectsRoot, body.project)
+          const chosen = ai[body.aiCandidateIndex]
+          if (chosen === undefined) { json(res, 400, { ok: false, error: { code: 'BAD_REQUEST', message: `no AI candidate ${body.aiCandidateIndex}` } }); return }
+          fromMs = chosen.startMs
+          toMs = chosen.endMs
+          origin = 'candidate'
+        }
         if (body.candidateIndex !== undefined) {
           const candidates = await readCandidates(projectsRoot, body.project)
           const chosen = candidates[body.candidateIndex]

@@ -1,0 +1,35 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-04T13:11:34.897Z",
+  "planner": "agent",
+  "candidates": [
+    {
+      "id": "ai-1",
+      "startMs": 15036,
+      "endMs": 58091,
+      "title": "The argument with a stranger",
+      "rationale": "Opens with a story, sets up the belief, and lands on «полнейшая чушь». Needs no context."
+    },
+    {
+      "id": "ai-2",
+      "startMs": 222649,
+      "endMs": 267931,
+      "title": "God lost, the devil won",
+      "rationale": "The most quotable passage in the recording: a 95/5 arithmetic that ends on «идиотизм». Stands alone completely."
+    },
+    {
+      "id": "ai-3",
+      "startMs": 300000,
+      "endMs": 347423,
+      "title": "God caught off guard",
+      "rationale": "The comic beat — God saying «ой-ой-ой, что же делать» in Eden, then improvising «план Б». Self-contained and funny."
+    },
+    {
+      "id": "ai-4",
+      "startMs": 410000,
+      "endMs": 468231,
+      "title": "Where is free will?",
+      "rationale": "Opens on a clean topic sentence and closes on a rhetorical question that works as an ending."
+    }
+  ]
+}

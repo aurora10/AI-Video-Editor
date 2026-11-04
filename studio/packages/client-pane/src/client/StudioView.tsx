@@ -20,6 +20,7 @@ interface StatePayload {
   timeline?: { programMs: number; hasTimeline: boolean }
   window?: { fromMs: number; toMs: number; origin: string }
   candidates?: { id: string; startMs: number; endMs: number; durationSec: number; openingLine?: string; score?: number }[]
+  aiCandidates?: { id: string; startMs: number; endMs: number; title?: string; openingLine?: string; rationale?: string }[]
   notes?: PaneNote[]
 }
 
@@ -66,6 +67,7 @@ const STYLES = `
 .dshstudio .note-banner { font-size: 12px; color: #9ed0ff; background: #12222f; border: 1px solid #1d4460; border-radius: 8px; padding: 7px 10px; }
 .dshstudio .primary.pulse { animation: dshstudio-pulse 1.6s ease-in-out infinite; }
 @keyframes dshstudio-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(31,122,63,.7) } 50% { box-shadow: 0 0 0 6px rgba(31,122,63,0) } }
+.dshstudio .opts.ai button { border-color: #4a3a12; background: #241d08; }
 .dshstudio .auto { display: flex; align-items: center; gap: 6px; font-size: 12px; opacity: .75; }
 .dshstudio .timeline-wrap { display: flex; flex-direction: column; gap: 8px; }
 .dshstudio .timeline { position: relative; height: 30px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; cursor: crosshair; touch-action: none; }
@@ -152,6 +154,7 @@ export function StudioView(props: StudioViewProps) {
   const [askSent, setAskSent] = useState<string | null>(null)
   const [winFrom, setWinFrom] = useState('')
   const [winTo, setWinTo] = useState('')
+  const [awaitingAgent, setAwaitingAgent] = useState(false)
   const videoRef = useRef<HTMLVideoElement | null>(null)
 
   const load = useCallback(async (which: string) => {
@@ -188,6 +191,15 @@ export function StudioView(props: StudioViewProps) {
       } catch { setAssets([]) }
     })()
   }, [slug])
+
+  // poll after asking the agent: it writes edit/candidates.ai.json in its own turn, which the pane
+  // cannot otherwise notice (there is no push channel for it yet)
+  useEffect(() => {
+    if (!awaitingAgent || slug === '') return
+    const timer = setInterval(() => { void load(slug) }, 5000)
+    const stop = setTimeout(() => setAwaitingAgent(false), 180_000)
+    return () => { clearInterval(timer); clearTimeout(stop) }
+  }, [awaitingAgent, slug, load])
 
   // poll while a render runs
   useEffect(() => {
@@ -268,11 +280,14 @@ export function StudioView(props: StudioViewProps) {
         method: 'POST',
         body: JSON.stringify({ project: slug, sessionId: String(props.sessionId), request }),
       })
-      setNote('Sent to the agent — it will work in the chat and re-render when done.')
+      setAwaitingAgent(true)
+      setNote(request === 'suggest-windows'
+        ? 'Asked the agent to propose windows on meaning — they will appear below when it writes them.'
+        : 'Sent to the agent — it will work in the chat and re-render when done.')
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) } finally { setBusy(false) }
   }
 
-  const setWindow = async (window: { fromMs?: number; toMs?: number; candidateIndex?: number }) => {
+  const setWindow = async (window: { fromMs?: number; toMs?: number; candidateIndex?: number; aiCandidateIndex?: number }) => {
     if (slug === '') return
     setBusy(true)
     try {
@@ -337,11 +352,27 @@ export function StudioView(props: StudioViewProps) {
               editing source {fmt(state.window.fromMs)}–{fmt(state.window.toMs)} ({((state.window.toMs - state.window.fromMs) / 1000).toFixed(0)}s, {state.window.origin})
             </div>
           )}
+          <div className="opts">
+            <button onClick={() => void askAgent('suggest-windows')} disabled={busy || slug === ''}
+              title="Ask the agent to choose windows by meaning rather than speech density">
+              {awaitingAgent ? 'Asking the agent…' : 'Suggest windows with AI'}
+            </button>
+          </div>
+          {(state?.aiCandidates ?? []).length > 0 && (
+            <div className="opts ai">
+              {(state?.aiCandidates ?? []).map((c, i) => (
+                <button key={c.id} onClick={() => void setWindow({ aiCandidateIndex: i })} disabled={busy}
+                  title={c.rationale ?? ''}>
+                  ★ {c.title ?? `${fmt(c.startMs)}–${fmt(c.endMs)}`}
+                </button>
+              ))}
+            </div>
+          )}
           {(state?.candidates ?? []).length > 0 && (
             <div className="opts">
               {(state?.candidates ?? []).map((c, i) => (
                 <button key={c.id} onClick={() => void setWindow({ candidateIndex: i })} disabled={busy}
-                  title={c.openingLine ?? ''}>
+                  title={`from speech density: ${c.openingLine ?? ''}`}>
                   {fmt(c.startMs)}–{fmt(c.endMs)} · {c.durationSec}s
                 </button>
               ))}
