@@ -22,7 +22,8 @@
     "measure-audio": "tsx scripts/measure-audio.ts",
     "verify-caption-placement": "tsx scripts/verify-caption-placement.ts",
     "font-gate": "tsx scripts/font-gate.ts",
-    "verify-graphics": "tsx scripts/verify-graphics.ts"
+    "verify-graphics": "tsx scripts/verify-graphics.ts",
+    "install-skill": "node scripts/install-skill.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

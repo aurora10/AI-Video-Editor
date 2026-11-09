@@ -2,7 +2,47 @@
 
 One row per step. **A step is `pass` only when the verification command's output is pasted here.** States: `todo · wip · pass · fail · blocked · cut`.
 
-Last updated: session 11 — **all eight of the owner's notes are done**, including the timeline. The pane and the renderer are feature-complete for short-form; what remains is window selection, a B-roll library, and drag-to-position for graphics.
+Last updated: session 15 — **the agent now knows how to drive the system.** A `video-editing` skill is installed into the profile's skills directory, and the testing guide was rewritten around the real workflow (raw file → plain-language request → judgement → next layer) instead of a pre-processed project.
+
+## The missing piece: the agent had no instructions (session 15)
+
+The pane, the renderer and the bridge all worked, but a *fresh* GUI agent was handed a user request like "remove the bad takes" and had no knowledge of the ingest → cut-plan → graphics → notes contracts. There was **no skills directory at all** in `studio/.dsh-home`. Everything the agent needed lived in my head and in `docs/`, which the agent does not read.
+
+Built `studio/packages/skill/video-editing/`:
+
+| File | Contains |
+|---|---|
+| `SKILL.md` | the loop (ingest → cut → show → layer → review → apply), the three failure modes, and the rule that nothing is claimed without a number |
+| `references/pipeline.md` | the commands, in order, with the measured cost of each |
+| `references/files.md` | the on-disk contracts: `project.json`, `cut-plan.json`, `graphics.json`, `notes.jsonl`, `candidates*.json` |
+| `references/review.md` | how to critique a render honestly (it cannot see frames; it must not pretend) |
+
+`pnpm install-skill` (`scripts/install-skill.mjs`) copies it to `$DSH_HOME/skills/video-editing`.
+
+**Verification:** a headless `dsh --profile studio --no-open` run with a probe prompt listed `video-editing` in the agent's available-skill catalogue. Discovery confirmed, not assumed.
+
+**Consequence for testing:** the guide can now assume an agent that knows the file formats. That was not true before this session, and it is why earlier from-scratch runs would have looked like stupidity rather than ignorance.
+
+## Testing guide rewritten (session 15)
+
+The first version was written around `test-vid` as a *finished* project, which the owner rejected: "I put raw video in folder and say what needs to be done." Correct — that is the product. The guide is now two tracks:
+
+- **T1 — the layers** on prepared footage (45 min, ≈1 min per iteration): each step is a sentence the owner actually says, plus what to judge
+- **T2 — from raw footage** (once, ~50 min for a short clip): the real first day, including "tell me what you find before you cut anything"
+- **T3 — the buttons** (15 min), explicitly labelled secondary
+
+`studio/fixtures/incoming/README.md` was rewritten to match, including the measured prepare times (1–3 min clip ≈ 5 min work; 8 min of 4K60 ≈ 40 min) and the privacy fact that only the WAV goes to OpenAI.
+
+### Two ways a shell render could lie (found while writing the guide)
+
+Writing the T1 steps exposed that a render started by the agent did not behave like a render started by the pane:
+
+1. **It ignored the project's look.** `render-clip` defaulted to `horizontal / background none / font inter / pace normal`, so a bare `pnpm render-clip test-vid --from 3:42 --to 3:52` produced a *landscape* cut of a *vertical* project. Measured before the fix: `960x540`, `0.6 MB`. The renderer now reads the project record and uses its settings as defaults; explicit flags still override. Measured after: `540x960`, `fill+blur`, Oswald 80px, pace calm — the project's own look.
+2. **The pane kept showing the previous video.** Only the pane's render route recorded `lastRender`; anything rendered from the shell left `project.json` pointing at an older file, so "here is your cut" was followed by the user watching the last one. `render-clip` now records `lastRender` (file, label, time, and the settings that actually produced it) after a successful render — except for `--no-captions` controls, which land in `out/controls/` and must never be presented as the result.
+
+Verified through the real API, not the source: `GET /video/api/state?project=test-vid` now returns `render: {file: "test-vid-pane-defaults.mp4", stale: false}` — the newest shell render is the pane's current video, and the pane agrees it matches the current settings.
+
+The skill's `references/pipeline.md` says both things, so a fresh agent does not have to discover them.
 
 ## Gates
 

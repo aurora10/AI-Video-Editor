@@ -35,13 +35,26 @@ if (Number.isNaN(parseTimeMs(opt('from', '0:00')!)) || Number.isNaN(parseTimeMs(
   console.error(`bad --from/--to: use m:ss or seconds (got "${opt('from')}" and "${opt('to')}")`)
   process.exit(2)
 }
-const withCaptions = !argv.includes('--no-captions')
-const captionMode = (opt('captions', 'word') as 'none' | 'word' | 'phrase')
-const fontKey = opt('font', 'inter')!
-const font = resolveFont(fontKey)
-
 const paths = projectPaths(resolve('projects', slug))
 const record = JSON.parse(await readFile(paths.record, 'utf8'))
+
+// A shell render should look like the project, not like the built-in defaults. The agent says
+// "render the window" and must get the look the user already chose; before this, a bare
+// `pnpm render-clip test-vid --from …` silently produced a horizontal, un-graded cut of a vertical
+// project and then recorded that as the latest render. Explicit flags still win over the record.
+const stored = (record.settings ?? {}) as {
+  captions?: boolean; captionStyle?: string; font?: string; pace?: string
+  mumbles?: string; orientation?: string; background?: string; graphics?: string
+}
+const withCaptions = argv.includes('--captions')
+  ? true
+  : argv.includes('--no-captions')
+    ? false
+    : stored.captions ?? true
+const captionMode = (opt('captions', stored.captionStyle === 'plain' ? 'none' : stored.captionStyle ?? 'word') as 'none' | 'word' | 'phrase')
+const fontKey = opt('font', stored.font ?? 'inter')!
+const font = resolveFont(fontKey)
+
 const src = record.sources[0]
 const proxy: string = src.proxies.preview
 if (!existsSync(proxy)) { console.error(`missing preview proxy: ${proxy}`); process.exit(2) }
@@ -51,11 +64,11 @@ const silence = await detectSilence(src.proxies.audio, src.id)
 const { transcript } = refineWordTimings(raw, silence, src.durationMs)
 
 // --- program time ---------------------------------------------------------
-const pace = opt('pace', 'normal') as 'calm' | 'normal' | 'fast'
+const pace = opt('pace', stored.pace ?? 'normal') as 'calm' | 'normal' | 'fast'
 // Measured on the reference cut: 0 ms reads as rushed jump cuts; ~220 ms lets a thought land.
 const PAUSE_RETAIN: Record<typeof pace, number> = { fast: 0, normal: 80, calm: 220 }
 // Mumbles: sound with no words, hesitations, isolated discourse markers, false starts.
-const fillersMode = opt('fillers', 'cut') as 'cut' | 'keep'
+const fillersMode = opt('fillers', stored.mumbles ?? 'cut') as 'cut' | 'keep'
 const mumbles = fillersMode === 'cut'
   ? detectMumbles(transcript.words, silence, src.durationMs)
     .filter((c) => c.endMs > fromMs && c.startMs < toMs)
@@ -103,8 +116,8 @@ if (win.regions.length === 0) {
 }
 const words = shiftWords(transcript.words, win, fromMs, toMs)
 
-const orientation = (opt('orientation', 'horizontal') as 'horizontal' | 'vertical')
-const background = (opt('background', 'none') as 'none' | 'blur' | 'studio')
+const orientation = (opt('orientation', stored.orientation ?? 'horizontal') as 'horizontal' | 'vertical')
+const background = (opt('background', stored.background ?? 'none') as 'none' | 'blur' | 'studio')
 /** Vertical + a background treatment means "fit the whole frame", not "crop a strip out of it". */
 const wantsFill = orientation === 'vertical' && background !== 'none'
 const probe = spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'v:0', '-show_entries', 'stream=width,height', '-of', 'csv=p=0', proxy], { encoding: 'utf8' })
@@ -287,7 +300,7 @@ const graphicsPath = join(paths.edit, 'graphics.json')
 const graphicsTrack: GraphicsTrack = existsSync(graphicsPath)
   ? GraphicsTrack.parse(JSON.parse(await readFile(graphicsPath, 'utf8')))
   : EMPTY_GRAPHICS
-const graphicsRequested = opt('graphics', 'on') !== 'off'
+const graphicsRequested = opt('graphics', stored.graphics === 'none' || stored.graphics === 'off' ? 'off' : 'on') !== 'off'
 // Notes can contribute graphics of their own (a text card, an image inset), so the track is the
 // file's items plus the notes' items, and the log says which is which.
 const combinedGraphics: GraphicsTrack = { schemaVersion: 1, graphics: [...graphicsTrack.graphics, ...applied.graphics] }
@@ -405,6 +418,39 @@ const wall = (Date.now() - started) / 1000
 const info = spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration,size:stream=codec_type,width,height', '-of', 'json', outPath], { encoding: 'utf8' })
 const meta = JSON.parse(info.stdout)
 const v = meta.streams.find((s: { codec_type: string }) => s.codec_type === 'video')
+
+// A render made by the agent has to become "the latest render" the pane shows. Only the pane's own
+// render route used to record `lastRender`, so anything rendered from the shell left the pane on an
+// older file — the agent says "here is your cut" and the user watches the previous one.
+// Control renders are excluded by construction (they land in `out/controls/`), because a
+// caption-less control must never be presented as the result.
+if (withCaptions) {
+  try {
+    const fresh = JSON.parse(await readFile(paths.record, 'utf8'))
+    fresh.lastRender = {
+      file: `${slug}-${label}.mp4`,
+      label,
+      at: new Date().toISOString(),
+      captions: true,
+      settings: {
+        captions: true,
+        captionStyle: captionMode,
+        font: font.entry.key,
+        voicePolish: !noVoice,
+        pace,
+        mumbles: fillersMode,
+        orientation,
+        background,
+        graphics: graphicsRequested ? 'broll' : 'off',
+      },
+    }
+    await writeFile(paths.record, JSON.stringify(fresh, null, 2) + '\n')
+    console.log(`    pane: this is now the latest render`)
+  } catch (error: unknown) {
+    // Recording is a convenience for the review loop; never fail a finished render over it.
+    console.warn(`    pane: could not record lastRender (${String(error)})`)
+  }
+}
 console.log(`\n  ✔ ${outPath}`)
 console.log(`    ${v.width}x${v.height} · ${Number(meta.format.duration).toFixed(2)}s · ${(Number(meta.format.size) / 1024 ** 2).toFixed(1)} MB · rendered in ${wall.toFixed(1)}s`)
 console.log(`    captions: ${assPath}\n    geometry: ${metaPath}`)

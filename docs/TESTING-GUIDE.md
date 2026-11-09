@@ -1,285 +1,304 @@
 # DSH Studio — Testing Guide
 
-**Who this is for:** you, testing the system before the next round of development.
-**What to do:** follow the workflows in order. Each step says what to do, what you should see, and how long it takes. Write your notes in the space provided — the report template is at the end.
+**What this tests:** the way you will actually work — drop footage in a folder, say what you want, look at the result, ask for the next layer.
 
-**How to use this document:** work top to bottom. If a step fails, stop that workflow, note it, and move to the next one — don't retry more than twice. Most failures are in the "Expected" line, so compare carefully.
+**Not this:** clicking buttons. The buttons exist, and **T3** exercises them, but they are the secondary surface. The primary surface is the conversation with the agent, with the video as the thing you judge.
 
 ---
 
-## 0. Before you start
+## How to read this
 
-### 0.1 Is everything running?
+Every step has the same shape:
 
-The GUI should be at **http://127.0.0.1:3099**. If the page does not load, the server is down and needs restarting — tell me, don't debug it yourself.
+> **Say** — what you type in the chat
+> **Expect** — what the agent does and what appears
+> **Judge** — the question only you can answer
 
-### 0.2 Hard-reload first
+Fill in the boxes. The report template is at the end.
 
-**`Cmd + Shift + R`**. I have changed the pane several times; a normal reload can serve you a stale bundle and make you report bugs that no longer exist. Do this at the start of **every** testing session.
+---
 
-### 0.3 What "rendering" looks like
+## 0. Setup (5 minutes)
 
-A render takes **45–60 seconds** on this machine. It is not instant and it is not broken.
+### 0.1 Hard-reload the GUI
 
-| Where to look | What it says while rendering |
+**`Cmd + Shift + R`** on http://127.0.0.1:3099. A stale bundle will make you report bugs that no longer exist.
+
+### 0.2 Open a session and look at the Studio tab
+
+Click the session in the left sidebar → the header shows **Chat · Trajectory · Studio** → click **Studio**.
+
+You should see a vertical video with captions, a settings column on the right, and a timeline bar under the player. If you see all that, the machinery underneath is alive.
+
+### 0.3 Two things to know before you start
+
+**① Every shell command will ask for your approval.** On this machine macOS refuses to start the nested sandbox the agent normally uses, so each command needs a click. This is not the agent failing — it is the machine. Approve them; if it becomes unbearable, say so in your report (it is a strong argument for a fix).
+
+**② A render takes 45–60 seconds.** While it runs the button says **"Rendering…"** and the log box under the player counts up (`…encoding 20% … 90%`). If both are static, nothing is running.
+
+### 0.4 Choose your track
+
+| Track | What it tests | Cost |
+|---|---|---|
+| **T1 — the layers** (start here) | captions, graphics, B-roll, notes, review on the **already-prepared** project | ~45 min, each iteration ≈1 min |
+| **T2 — from raw footage** | the real first request: a new file, prepared and cut from scratch | +40 min for a long clip, ~5 min for a short one |
+
+Do T1 first — it exercises everything except preparation, and it is fast. Then run T2 once to prove the beginning of the pipeline.
+
+---
+
+# T1 — The layers, on prepared footage
+
+The project `test-vid` is already prepared, transcribed and analysed. That is deliberate: it lets you test the parts that involve *judgement and review* without waiting 40 minutes.
+
+## T1.1 — "Let me see what you have" (2 min)
+
+> **Say:** *"Show me the current state of the test-vid project and the latest render."*
+
+**Expect:** the agent reports the window being edited (a source time range), the settings, how many notes exist, the path of the last render, and where the footage lives. It may mention which window the last render came from.
+
+> **Judge:** was that summary accurate and readable? Did it tell you *where* the video is?
+
+```
+```
+
+## T1.2 — "Remove the bad takes and silences" (10 min)
+
+This is your first real request, on footage that is already cut. You are testing whether asking in plain language produces editorial work.
+
+> **Say:** *"Cut the bad takes and the silences from the 3:42–4:27 window. Decide yourself how much of each pause to keep, and tell me what you decided."*
+
+**Expect:**
+1. Approval prompts for its commands — approve them
+2. A render starts; the log box counts up
+3. It reports back a **per-pause list with reasons**, e.g. *"cut hard on «я не знал ⟪⟫ он мог это сделать» (a false start), kept 320 ms after «Бог очень слабый»"*
+4. A file path and a duration
+
+> **Judge:** does the cutting feel like an editor made it? Which decision was wrong?
+> *(The most useful answer names a moment: "it cut too early at 4:02".)*
+
+```
+```
+
+## T1.3 — "It is too fast here" (5 min)
+
+> **Say:** *"Between 4:05 and 4:20 it feels rushed. Give the pauses more room there and show me."*
+
+**Expect:** it changes decisions only for those pauses, re-renders, and the passage breathes more. Total length grows slightly.
+
+> **Judge:** did it change *only* that region, or did the whole cut shift?
+
+```
+```
+
+## T1.4 — "Now let's put captions" (5 min)
+
+> **Say:** *"Add captions — word by word — and tell me where they sit and how many there are."*
+
+**Expect:** captions appear below your chin; the agent reports the page count, the style, and that it checked the captions clear your face.
+
+> **Judge:** readable? sized right? positioned right? Is the word-by-word rhythm comfortable or too busy?
+
+```
+```
+
+## T1.5 — "Generate some graphics, show me first" (10 min)
+
+This is the step you asked for: **review the assets before they go in the video.**
+
+> **Say:** *"Generate three motion-graphics ideas that would fit this argument — a title card, a stat card, and something for the 95/5 contrast. Put them in a folder I can look at; don't put them in the video yet."*
+
+**Expect:** the agent creates image files under `projects/test-vid/assets/`, gives you the **paths**, and says what each is and where it would go. Nothing changes in the video yet.
+
+> **Judge:** were the paths clickable/openable? Did the ideas fit the argument? Could you actually see them?
+
+```
+```
+
+## T1.6 — "Put them in where appropriate" (10 min)
+
+> **Say:** *"Use the stat card and the 95/5 one. Put them where they help the argument, not over my face."*
+
+**Expect:** it writes placements (which second, which corner, how big), re-renders, and reports each placement with a reason. Images land **on the side away from your face**.
+
+> **Judge:** were the placements good? Too big, too small, on screen too long, too short?
+
+```
+```
+
+## T1.7 — "Insert B-roll as you see fit" (10 min)
+
+> **Say:** *"Add B-roll where you think it helps. Use what is in the assets folder, or tell me what you are missing."*
+
+**Expect:** either placements with reasoning, or an honest answer that the asset folder has no usable B-roll plus a list of what it needs. **Both are acceptable** — the second is the more likely outcome right now.
+
+> **Judge:** if it improvised, was the timing right? If it asked, was the request specific enough to act on?
+
+```
+```
+
+## T1.8 — Review in the pane and leave notes (10 min)
+
+Now test the review loop itself, which is the reason the pane exists.
+
+| # | Do this | Expect |
+|---|---|---|
+| 1 | Play the video; click the timeline bar at a moment you dislike | the video jumps there; a yellow playhead moves |
+| 2 | Drag along the bar to select a few seconds | a blue selection appears, readout shows `selected 0:12.0–0:18.0` |
+| 3 | Composer → **No captions** → **Add note for selection** | a row appears in the notes list; a render starts |
+| 4 | Play that stretch in the result | captions gone **exactly there**, unchanged elsewhere |
+| 5 | Composer → **Cut**, select a stumble, Add | the stretch is removed; the video shortens |
+| 6 | Composer → **Instruction**, type *"make the captions bigger from here"*, Add | the note is stored but **nothing changes** — the renderer cannot act on free text, and the render log says `needs the agent` |
+
+> **Judge:** was leaving a note faster and clearer than typing the same thing in chat? Step 6 especially — was it obvious that Instruction notes do nothing on their own?
+
+```
+```
+
+## T1.9 — "Ask for a review" (5 min)
+
+> **Say:** *"Watch the latest render and tell me what is weak about it."*
+
+**Expect:** the agent reads the numbers (transcript, cut plan, notes, render log) and gives specific criticism, or admits it cannot see the frames. It should **not** invent impressions of the picture.
+
+> **Judge:** was the criticism specific and useful, or generic? Did it pretend to have watched?
+
+```
+```
+
+---
+
+# T2 — From raw footage (the real first day)
+
+Run this once. It is slow because 4K takes ~40 minutes to prepare — that is the honest cost of this machine.
+
+## T2.1 — Put the file where the system expects it
+
+Drop a raw video into:
+
+```
+studio/fixtures/incoming/
+```
+
+**Use a short clip** (1–3 minutes) if you have one: preparation drops from ~40 minutes to ~5.
+
+## T2.2 — The first real request
+
+> **Say:** *"There is a new video in the incoming folder. Prepare it and remove the bad takes and the silences. Tell me what you find before you cut anything."*
+
+**Expect, in this order:**
+1. It lists the folder and confirms which file (it should ask if there is more than one)
+2. It starts preparing: probe numbers appear (`3840x2160 @ 60 fps · hevc · 2.71 GB`), then `…preview 20% … 100%`, then the scrub proxy, then `record written`
+3. It transcribes and reports word count, segment count, cost, and detected language
+4. It reports what it found: how many pauses, how much dead air, any stumbles
+5. **Only then** does it propose a cut and render
+
+> **Judge:** did it talk to you *before* cutting, as asked? Did the numbers make sense — dead air %, language, word count?
+
+```
+```
+
+## T2.3 — The acceptance question
+
+> **Judge:** watch the result. **Would you have paid an editor for this cut?**
+> If not, name the single worst moment. That one sentence is the most valuable thing in your report.
+
+```
+```
+
+## T2.4 — The second layer, on the new project
+
+> **Say:** *"I like it. Now put captions on it."*
+
+**Expect:** the same caption behaviour as T1.4, on the new footage — which proves the pipeline is general, not tuned to one clip.
+
+```
+```
+
+---
+
+# T3 — The buttons (secondary, 15 min)
+
+Every control has a tested backend; this is a smoke test that the UI honours it. **Auto-render is on**, so each click starts a render — wait for it, or the next click queues.
+
+| # | Click | Expect |
+|---|---|---|
+| 1 | **Caption style → Phrase, active word highlighted** | whole phrase stays; the spoken word turns yellow and grows slightly |
+| 2 | **Caption style → One word at a time** | one word, larger |
+| 3 | **Font → Bebas Neue**, then **Montserrat** | visibly different faces, caption size unchanged |
+| 4 | **Sound → Raw audio**, listen | thinner, duller than before |
+| 5 | **Mumbles → Keep everything**, then back | slightly longer and rougher, then tighter again |
+| 6 | **Format → Horizontal 16:9** | frame becomes wide; a blue line explains the background was reset |
+| 7 | **Background → Blurred background** (while horizontal) | refused with the reason; it does not silently do nothing |
+| 8 | **Format → Vertical 9:16** + **Background → Studio look** | full frame fitted over a blurred copy, slightly vignetted |
+| 9 | **Window → a grey time button**, then **a gold ★ button** | the window changes instantly, a render starts, the video becomes that passage |
+| 10 | **Suggest windows with AI** | the agent proposes windows; ★ buttons appear (approvals required) |
+| 11 | **Plan cuts with AI** | the agent rewrites the cut plan for the current window and re-renders |
+
+> **Judge:** which of these felt like a real editor's control, and which felt like a debug switch?
+
+```
+```
+
+---
+
+## What NOT to report as a bug
+
+| Known limitation | What you will see |
 |---|---|
-| The green-ish button | **"Rendering…"** |
-| Log box under the player | Lines appear, ending with `…encoding 10%`, `20%`, … `90%` |
-| Anything else | Nothing changes until it finishes |
-
-If the button says "Render changes" and nothing else is happening, **no render is running** — press it.
-
-### 0.4 Ground rules for your notes
-
-- Say what you **expected** and what you **got**. "Nothing happened" is less useful than "I clicked Save and expected the video to change; the button still said Render".
-- Note the **step number** (e.g. W3.4) with each note.
-- Screenshots are welcome but not required.
-- If the video content surprises you, say so — that is data about the *editing*, not the app.
+| **No final quality** | everything is a **540p preview**. No 1080p export, no SRT, no thumbnail, no upload |
+| **No trim-by-drag** | you pick a window; you do not drag in/out points |
+| **Graphics placement is fixed** | image notes: 32 % width, on the side away from your face, top corner. No size slider, no drag |
+| **No B-roll library** | you can point at files in `assets/`; there is no search or tagging |
+| **Instruction notes don't act** | they are stored for the agent, not applied by the renderer |
+| **Approval per command** | the macOS sandbox cannot start here; every command needs a click |
+| **Cut judgement is audio-only** | it hears stumbles and beats; it cannot tell whether a cut *looks* jumpy mid-gesture |
+| **Window suggestions are text-only** | the agent reads the transcript; it has not seen the frames |
+| **One video at a time** | no batch, no "three shorts from one long video" |
 
 ---
 
-## W1 — First look (2 minutes)
+## Report template
 
-**Goal:** confirm the pane loads and shows your project.
-
-| # | Do this | Expect |
-|---|---|---|
-| W1.1 | Open http://127.0.0.1:3099 | The DSH GUI loads |
-| W1.2 | Click the session **"Greeting to the AI assistant"** in the left sidebar | A conversation opens; the header shows **Chat · Trajectory · Studio** |
-| W1.3 | Click **Studio** | A video player appears on the left, a settings column on the right |
-| W1.4 | Look at the player | A vertical video, 540×960, with burned-in Russian captions and a blurred background |
-| W1.5 | Read the header line above the player | The project name (`test-vid.mp4`) and `session …` |
-| W1.6 | Look at the right column | Eight blocks: CAPTIONS, CAPTION STYLE, FONT, SOUND, PACE, MUMBLES, FORMAT, BACKGROUND, GRAPHICS AND B-ROLL |
-| W1.7 | Check nothing says "not built yet" | All controls should be enabled — that label was removed deliberately |
-
-**Report here:** did the video play? any block missing? anything looking broken?
 ```
-```
+## Which track(s) I ran
+T1 / T2 / T3 (delete what does not apply)
 
----
+## The conversation
+- Did the agent understand plain-language requests? where did it guess wrong?
+- Did it talk before acting when I asked it to?
+- Did it explain what it decided — readable, or jargon?
 
-## W2 — Choosing which part of the footage (5 minutes)
+## The output (judge this, not the app)
+- T1.2 the cut:
+- T1.3 after "too fast here":
+- T1.4 captions:
+- T1.5 graphics I was shown:
+- T1.6 graphics in the video:
+- T1.7 B-roll:
+- T1.9 the review it gave:
+- T2.3 would I pay for this cut?
 
-**Goal:** this is the feature that decides whether the whole system is useful, because everything else applies to the chosen window.
+## What broke
+step | what I expected | what happened
 
-### W2.1 The heuristic candidates
+## What I wanted to say and could not
+(the most useful section — your own words)
 
-| # | Do this | Expect |
-|---|---|---|
-| W2.1.1 | Find the **WINDOW — WHICH PART OF THE FOOTAGE** block | Text inputs "from" / "to", a **Use this window** button, and grey buttons with time ranges |
-| W2.1.2 | Read the small grey line under the inputs | Something like `editing source 3:42.6–4:27.9 (45s, candidate)` |
-| W2.1.3 | **Click a grey time button** (e.g. `0:15–0:58 · 43s`) | The grey line changes to that range **immediately**; the render button becomes "Rendering…"; after ~50s the player shows that different passage |
-
-### W2.2 The AI candidates
-
-| # | Do this | Expect |
-|---|---|---|
-| W2.2.1 | Find the button **Suggest windows with AI** | It sits inside the Window block |
-| W2.2.2 | Note the gold **★** buttons if they are already there | Four with titles like *"God lost, the devil won"* |
-| W2.2.3 | **Hover a ★ button** | A tooltip explains why that window stands alone |
-| W2.2.4 | **Click a ★ button** | The window changes to that range; a render starts; the player updates |
-
-### W2.3 If you press "Suggest windows with AI"
-
-**Expect this to be slow and noisy, and that is not a bug** — it is the sandbox limitation on this machine:
-
-1. A blue line appears: *"Asked the agent to propose windows on meaning…"*
-2. The **chat tab** starts showing the agent working
-3. **You will be asked to approve a shell command — repeatedly, once for each command.** This is macOS refusing to run nested sandboxes on this machine. Approve them.
-4. When the agent finishes, new ★ buttons appear in the Window block (the pane re-checks every 5 seconds for up to 3 minutes)
-
-**Report here:** did the grey buttons work? did the ★ buttons appear with sensible titles? did you try asking for fresh suggestions, and did the approvals make it painful?
-```
+## Speed and friction
+- how annoying were the approval prompts? (1 = fine, 5 = unusable)
+- was 45–60 s per render acceptable? what would you accept?
 ```
 
 ---
 
-## W3 — Changing the look (10 minutes)
+## Timing summary
 
-**Goal:** every control should change the video. **Auto-render is ON**, so each click starts a render by itself.
-
-**Important:** wait for each render to finish before clicking the next control, or you will be looking at a video that does not match your settings. If you do click twice quickly, the pane now **queues** the second render instead of showing an error — you will see a blue line saying *"Next render queued"*.
-
-### W3.1 Captions
-
-| # | Do this | Expect |
-|---|---|---|
-| W3.1.1 | Click **Pace → Fast (all pauses cut)** | Render starts; result is tighter and faster |
-| W3.1.2 | Click **Pace → Calm (keeps a breath)** | Renders longer; speech feels less rushed |
-| W3.1.3 | Click **Caption style → Phrase, active word highlighted** | The whole phrase stays on screen and the spoken word turns **yellow and slightly bigger** |
-| W3.1.4 | Click **Caption style → One word at a time** | One word on screen, larger |
-| W3.1.5 | Click **Captions → No captions** | Captions gone from the video |
-| W3.1.6 | Click **Captions → Captions** | They come back |
-
-### W3.2 Typeface
-
-| # | Do this | Expect |
-|---|---|---|
-| W3.2.1 | Click **Font → Bebas Neue**, wait for the render | Captions visibly change shape (tall, condensed, capital letters) |
-| W3.2.2 | Click **Font → Montserrat** | Clearly a different, heavier face |
-| W3.2.3 | Click **Font → Oswald** | Condensed, tall |
-| W3.2.4 | Check the caption **size stays the same** across fonts | It should not jump between renders; a small difference is acceptable on very long words |
-
-### W3.3 Sound
-
-| # | Do this | Expect |
-|---|---|---|
-| W3.3.1 | Play the video, listen for 15 seconds | Voice should sound fuller and clearer than the raw recording |
-| W3.3.2 | Click **Sound → Raw audio**, wait, listen again | Noticeably thinner and duller |
-
-### W3.4 Mumbles
-
-| # | Do this | Expect |
-|---|---|---|
-| W3.4.1 | Click **Mumbles → Keep everything** | Slightly longer, slightly rougher |
-| W3.4.2 | Click **Mumbles → Remove mumbles** | Short tighter gaps where you stumbled |
-
-### W3.5 Format and background
-
-| # | Do this | Expect |
-|---|---|---|
-| W3.5.1 | Click **Format → Horizontal 16:9** | The player switches to a wide frame; a blue line explains the background was reset to *None* |
-| W3.5.2 | Click **Background → Blurred background** while horizontal | You get a message that it only applies to vertical — the control should not silently do nothing |
-| W3.5.3 | Click **Format → Vertical 9:16**, then **Background → Blurred background** | Vertical frame: your whole frame fitted in the middle, blurred copy filling above and below |
-| W3.5.4 | Click **Background → Studio look** | Same layout, slightly darker and more vignetted |
-| W3.5.5 | Click **Background → Crop to fill** | Vertical, but fills the frame by cropping the sides — you lose most of the room |
-
-**Report here:** which changes were visible, which were not, and whether the wait between renders was tolerable
-```
-```
-
----
-
-## W4 — Editing a moment (15 minutes)
-
-**Goal:** the timeline. This is the part that turns settings into directing.
-
-| # | Do this | Expect |
-|---|---|---|
-| W4.1 | Find the horizontal bar under the player with a time readout below it (e.g. `0:00.0 / 0:35.0`) | That is the timeline |
-| W4.2 | **Click halfway along the bar** | The video jumps to that moment; the readout changes; a yellow playhead line moves |
-| W4.3 | **Drag along the bar** | A blue selection appears; the readout adds `selected 0:12.0–0:18.0` |
-| W4.4 | With a selection made, click the button **No captions** in the composer row, then **Add note for selection** | A render starts; afterwards a small **×** row appears in the notes list, e.g. `NO CAPTIONS 0:12.0 let this breathe` |
-| W4.5 | Play the selection range in the result | **No captions in that stretch**; captions elsewhere are unchanged |
-| W4.6 | Click the **Cut** button, drag a selection over something you dislike (a stumble, a tangent) | Captions disappear from the notes list entry? No — a **CUT** row appears |
-| W4.7 | Play the result around that point | The selected stretch is **removed** and the video is shorter |
-| W4.8 | Click **Text card**, type something in the box, drag a 3-second selection, Add | After the render, your text appears **full screen** for those 3 seconds |
-| W4.9 | Click **Image**, pick `card.png` from the dropdown, drag a selection, Add | After the render, the image appears **on the side away from your face** |
-| W4.10 | Click **Instruction**, type *"make the captions bigger here"*, add it | It is stored **but nothing changes in the video** — see the warning below |
-| W4.11 | Press **×** on a note to delete it | The note disappears; a render starts; the effect is gone from the video |
-
-**⚠️ Important:** the **Instruction** note type is stored and shown, but the renderer cannot act on free text. It is printed in the render log as `needs the agent`. Do report whether the distinction was clear to you — if it wasn't, the UI is at fault.
-
-**Report here:** did each note type do what the table says? did the timeline feel usable or fiddly? which note type did you want that is missing?
-```
-```
-
----
-
-## W5 — Letting the AI cut (10–20 minutes, depending on approvals)
-
-**Goal:** per-pause judgement instead of one global pace.
-
-| # | Do this | Expect |
-|---|---|---|
-| W5.1 | Pick a window first (W2), e.g. the ★ *"God caught off guard"* | — |
-| W5.2 | Click **Plan cuts with AI** | A blue line: *"Sent to the agent…"*; the chat tab shows the agent working |
-| W5.3 | **Approve each shell command** the agent asks for | Same sandbox limitation as W2.3 |
-| W5.4 | Wait for the agent to say it is done, then look at the pane | The player shows a re-rendered version |
-| W5.5 | Compare with the same window **before** you planned cuts | The planned version should feel deliberately paced: stumbles gone, but beats after strong statements kept |
-| W5.6 | Read the render log under the player | A line like `cut plan: 11 decisions by agent — filler 3 · beat 3 · stumble 3 · breath 2` |
-
-**The judgement question I most want answered:** does the AI-planned cut feel *better* than the global "Calm" pace, or just different? If it feels worse, say which moment it got wrong.
-
-**Report here:**
-```
-```
-
----
-
-## W6 — Checking my claims (10 minutes)
-
-**Goal:** these are the things I have asserted with measurements. Please try to break them.
-
-| # | Claim | How to test | Expect |
-|---|---|---|---|
-| W6.1 | Captions never cover your face | Watch any render closely at several points | Captions sit **below your chin**, never over eyes or mouth; you may see them touch the top of your head — that was accepted |
-| W6.2 | Captions are one consistent size | Watch two different passages | Type should not change size between captions |
-| W6.3 | Captions never clip at the frame edge | Look at long words: «Фундаментальная», «протестантская» | Words fit inside the frame; nothing sliced off at the sides |
-| W6.4 | No real words are lost | Compare a passage's captions to what you actually said | Every word you spoke appears on screen; only stumbles and fillers should be gone |
-| W6.5 | The audio is fuller | Listen on headphones | Voice has body and clarity, not thin or muffled |
-| W6.6 | Captions disappear where you asked | Add a "No captions" note over a stretch and watch it | Empty exactly there, present either side |
-
-**Report here:** any claim that failed, with the timestamp in the video where you saw it
-```
-```
-
----
-
-## W7 — Known limitations (don't report these as bugs)
-
-These are real gaps, already on the list for the next round:
-
-| Limitation | What you will see |
+| | |
 |---|---|
-| **Final quality** | Everything is a **540p preview** made from a proxy. There is no 1080p export yet, no SRT file, no thumbnail, no upload |
-| **Editing is per-moment only** | You cannot trim arbitrary in/out points by dragging; you choose a window and let pauses/mumbles/notes do the rest |
-| **Graphics placement** | Image notes always go at 32 % width on the side away from your face. No size slider, no drag, no vertical control |
-| **No B-roll library** | You can point at an image or clip in the project's `assets/` folder, but there is no search, no tagging |
-| **Free-text instructions** | Stored and shown; not applied by the renderer. They need the agent |
-| **Agent = one approval per command** | The macOS sandbox on this machine cannot start, so the GUI agent asks for every shell command |
-| **AI cut judgement is audio-only** | It decides stumbles and beats from words and pauses. It cannot tell whether a cut *looks* jumpy mid-gesture — that work is not built yet |
-| **Window suggestions are meaning-based, not visual** | The agent picks from the transcript; it has not seen the frames |
-| **One video at a time** | No batch of reels, no "three shorts from one long video" |
+| T1 layers | ~45 min (≈1 min per re-render) |
+| T2 from raw | ~50 min (≈5 min preparation for a short clip) |
+| T3 buttons | ~15 min |
+| **Total** | **under two hours** |
 
----
-
-## W8 — The report to send back
-
-Copy this and fill it in. Anything you leave blank, I will assume worked.
-
-```
-## What worked
-(workflows and steps that behaved as described)
-
-## What didn't
-step number | what I expected | what happened
-
-## Judge the output, not the app
-- Does the AI-planned cut feel better than "Calm" pace?  
-- Do the ★ windows pick better moments than the grey ones?  
-- Is the caption style right now (word-by-word, Oswald, yellow accent)?  
-- Is the sound full enough, or still thin?  
-- Is the background too strong, too weak, right?
-
-## What I wanted to do and couldn't
-(your own words — this is the most valuable section)
-
-## Anything that looked broken but might be my mistake
-```
-
----
-
-## 9. How long this should take
-
-| Workflow | Time |
-|---|---|
-| W1 first look | 2 min |
-| W2 windows | 5 min (longer if you try asking the agent) |
-| W3 the look | 10 min (≈50s per control change) |
-| W4 timeline notes | 15 min |
-| W5 AI cut planning | 10–20 min |
-| W6 checking claims | 10 min |
-| **Total** | **about an hour** |
-
-Do it in two sittings if that is easier: W1–W3 first, then W4–W6.
-
----
-
-## 10. If something is badly broken
-
-1. Note the step number and what you saw.
-2. Skip to the next **workflow** (not the next step) — one broken control does not stop the others.
-3. If the GUI itself dies: tell me the URL stopped responding; I will restart the server and tell you when it is back.
-
-Do not clear files, delete the project, or edit anything under `studio/projects/test-vid/` by hand — several tests depend on its current state, and I would rather debug a known state than a repaired one.
+Split it: T1 in one sitting, T2 in another.
