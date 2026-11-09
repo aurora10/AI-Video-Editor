@@ -17,6 +17,11 @@ Three real gaps behind that, not just missing prose:
 **Verified rather than assumed:**
 
 - **Rebuilt the profile from nothing** — `rm -rf .dsh-home/profiles/studio`, then `./start.sh`: it printed `first run: preparing the studio profile… done`, booted, `/` returned 200 and `/video/api/state` returned the project. The profile in use now *is* the bootstrapped one (the previous copy was backed up first).
+- **A fresh clone also had no client bundle.** `lib/` is gitignored build output, so without it the server
+  boots but the Studio tab never appears. `start.sh` now builds it (and fails loudly if it cannot,
+  rather than serving a pane-less app). Verified by deleting `packages/client-pane/lib` and booting:
+  `./start.sh` rebuilt 29.9 KB of client code, and the probe's transcript still printed
+  `WINDOW — WHICH PART OF THE FOOTAGE`.
 - **Idempotency:** a second `./start.sh` printed `Already running — nothing to start.` and exited 0.
 - **The UI text the guide quotes is measured, not remembered.** A headless probe of the live page gave the landing controls (`New session`, composer placeholder `Describe what you want to build`), the in-session tabs (`Chat`, `Trajectory`, `Studio`), and the pane's own labels (window group, ★ candidate titles, composer buttons, the `latest: …` line, every settings group). One bug fell out of it: the pane's footer still said "Timeline scrubbing, point-and-instruct notes and drag editing arrive with the overlay editor", which stopped being true two sessions ago. Rewritten to describe what exists, then rebuilt (29.9 KB) and passed the bundle contract check.
 - **The skill is injected in the GUI**, not merely discoverable from the CLI: the probe's transcript shows a `skill-catalog` context injection on the first turn, and the agent replied.

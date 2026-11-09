@@ -69,6 +69,14 @@ echo
 (cd "${here}" && node scripts/install-skill.mjs >/dev/null 2>&1) || \
   echo "note: could not refresh the skill (the agent may be a version behind)"
 
+# --- build the browser half of the pane ------------------------------------
+# lib/ is build output and gitignored, so a fresh clone has none and the Studio tab would never appear.
+# Failing here is fatal: a server without the pane is a worse experience than an honest error.
+if ! (cd "${here}" && node scripts/build-client.mjs >/dev/null 2>&1); then
+  echo "could not build the editor pane — run 'node scripts/build-client.mjs' in studio/ to see why" >&2
+  exit 1
+fi
+
 echo "starting… this takes about 10 seconds."
 echo
 
