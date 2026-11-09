@@ -103,6 +103,19 @@ matters more than the ideal machine.
 Consequence for the product, not just for me: **ingest should tell the user this before they wait.**
 The prepared path is fine; the advice is worth as much as the code.
 
+### Can a rented GPU fix this? (session 16, ADR-017)
+
+Answered with numbers in §5.5.1c of the development plan rather than by opinion. Summary: NVDEC would
+make the master decode fast, but the upload replaces it as the bottleneck (30 min of 4K60 HEVC = 9.9 GB,
+~68 min on a 20 Mbit home uplink), so end-to-end the cloud is **1.5×** on one long 4K file and **5×
+worse** once the source is the 1080p H.264 the codec discipline already recommends. The preview loop —
+the thing actually repeated — would gain 1.5–2× at best, because its cost is ffmpeg per-pixel work and
+libass, and libass has no GPU path.
+
+So: local by default, cloud as a batch lane, and the cheap radical fix is a used Apple Silicon Mac mini
+(hardware HEVC decode, no uploads). The invariants that keep relocation possible are written down, and
+the renderer already satisfies them — it is a pure function of project, window and settings.
+
 ## Gates
 
 | Step | State | Verification | Notes |

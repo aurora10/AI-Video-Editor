@@ -483,6 +483,72 @@ Two design rules follow, and they are binding rather than advisory:
 Working-set numbers for a 60 s 9:16 short at preview quality: **T0-dominant ≈ 40–90 s**,
 **T1-heavy ≈ 4–6 min**, incremental note round (1–2 dirty intervals, cached neighbours) ≈ **5–30 s**.
 
+#### 5.5.1c Where the compute can run — the cloud-GPU question, answered with numbers
+
+The owner asked whether this work could move to rented GPUs (Runpod and similar) for a radical speed-up.
+The answer depends entirely on which stage is being moved, because the stages have different bottlenecks.
+
+Measured on the dev machine (`MacBookPro10,1`, i7-3720QM), decode-only, 30 s slices of the same footage:
+
+| source | decode | 30 min source prepares in |
+|---|---|---|
+| 4K60 HEVC (phone default) | **0.29× realtime** | ~1 h 45 min |
+| 4K60 H.264 | 2.9× | ~10 min |
+| 1080p60 HEVC | 6.3× | ~5 min |
+| 1080p60 H.264 | **10.9×** | ~3 min |
+
+`-hwaccel videotoolbox` on the original measured **slower** than software (125 s vs 103 s, with 11 s of
+user CPU instead of 138 s): this chip has no HEVC decoder in silicon, so nothing is being handed to
+hardware. That is the whole reason 4K phone footage costs two hours, and it is why a GPU *would* help —
+NVDEC decodes 4K60 HEVC many times realtime.
+
+**But the upload becomes the bottleneck, and it is large.** At 5.65 MB/s (measured bitrate), 30 minutes of
+4K60 HEVC is 9.9 GB. End to end, with a 20 Mbit/s home uplink and ~3 min of GPU time:
+
+| job | local today | cloud, end to end | verdict |
+|---|---|---|---|
+| one 30-min 4K60 HEVC | ~103 min | ~71 min | cloud 1.5× — not radical |
+| one 30-min clip as 1080p H.264 | **~3 min** | ~15 min | **cloud loses 5×** |
+| one 2-min 4K60 HEVC | ~7 min | ~7.5 min | a wash |
+| batch: 20 × 2-min 4K60 HEVC | ~138 min | ~93 min | cloud 1.5× |
+| batch: 20 × 2-min 1080p H.264 | ~4 min | ~19 min | cloud loses 5× |
+
+On a 1 Gbit/s uplink the same 9.9 GB uploads in ~1.3 min, and the 30-minute 4K job drops to ~4 min — a
+real 25×. So the honest rule: **cloud GPU pays when the bitrate is high, the files are already near the
+cloud, or the batch is big — and it never pays for the interactive loop.**
+
+**What a GPU does not fix at all:**
+
+1. **The preview render loop.** ≈14 s fixed + 0.5 s per program second at 540p, dominated by ffmpeg
+   per-pixel filter work and **libass, which has no GPU path**. Encoding is a minor share at 540p. Expect
+   1.5–2× at best, and you would add a network round trip to what is now a local 45-second operation.
+2. **Fixed per-invocation cost** (process start, transcript parse, silence map, face track) — 14 s of a
+   45 s render.
+3. **The human loop.** Watching and judging a cut is the real cost of editing.
+
+**Decision (ADR-017): local by default, cloud GPU as a batch lane, never the interactive path.** Before
+renting anything, note that the cheapest radical speed-up for this workload is a used Apple Silicon Mac
+mini (roughly $400–600): its media engine decodes 4K60 HEVC in hardware, turning a two-hour ingest into
+minutes with no upload, no egress, no code change and no per-hour bill. Renting GPUs is for batch or for a
+service used by other people; and if the owner's upload is fast, it becomes viable for long 4K files too.
+
+**Invariants that keep the option open (binding):**
+
+1. **The renderer stays a pure function of `(project dir, window, settings)`.** `render-clip` reads the
+   project record, the 540p proxy and the edit files; it writes an MP4 plus a meta sidecar. No UI state,
+   session state or absolute local path may leak in. This is what makes it relocatable.
+2. **The preview proxy is the remote contract** — 80 MB per 8 minutes, plus small JSON. A remote renderer
+   never needs the 4K master.
+3. **Exactly two macOS-only dependencies constitute the portability cost:** Apple Vision face detection
+   (`tools/face-detect.m`, replaceable by SCRFD/insightface on GPU) and system-font resolution (bundle the
+   fonts; `fixtures/fonts` exists). ffmpeg, libass, Node and ASS run unchanged on Linux.
+4. **ASR is already remote and provider-selectable** (ADR-013), so a GPU box running faster-whisper is one
+   more provider behind the same seam.
+
+GPU rental rates move constantly; verify current per-second rates and cold-start behaviour before quoting
+figures. For minutes-long jobs, per-second billing plus worker start-up dominates, which is why serverless
+endpoints suit bursty batches better than a pod left running.
+
 #### 5.5.2 The segment cache
 
 ```
@@ -1595,6 +1661,8 @@ Pixel-perfect equality of Chromium output across macOS/Linux/Windows (documented
 | ADR-012 | Rule violations warn in preview, soft-block `final` | Visible objection beats silent correction | Yes |
 | ADR-013 | **ASR is provider-selectable; local whisper is the default**, hosted API (OpenAI `whisper-1`) is an opt-in accelerator. Faces and encoding stay on-device; vision QA opt-in | Hosted transcription is better and much faster than CPU whisper on the target hardware, and it is the single highest-leverage artifact in the pipeline — "let the AI do the heavy lifting". Video never leaves the machine | Yes (flip the provider setting to `local`) |
 | ADR-014 | 8 presets in v1, not 20+ | Quality per preset (golden frames, inspector, tier fallback) beats breadth | Yes |
+| ADR-016 | **Source codec discipline**: accept and prefer 1080p H.264 for long sources; keep the 4K master on disk but out of the ingest path | Measured 37× decode advantage over 4K60 HEVC on target hardware (0.29× vs 10.9× realtime), i.e. a 2-hour ingest becomes 3 minutes for free; the editor works from the 540p proxy either way | Yes (switch the ingest profile back to 4K when hardware allows) |
+| ADR-017 | **Local by default; cloud GPU is an optional batch lane, never the interactive path** | GPU accelerates the one-time master decode (NVDEC) but not libass/filter work in the preview loop; end-to-end gains are 1.5× unless the uplink is fast or the batch is large, while the free codec fix is 37×. A used Apple Silicon mini beats renting GPUs for single files. Renderer stays a pure function of (project, window, settings) so this can be revisited without a rewrite | Yes (lane is additive; invariants in §5.5.1c) |
 | ADR-015 | The Hypit skill is installed as **reference material only** — never as a runtime dependency, and its text is never copied into shipped files | Its licence permits using it to make videos but forbids redistribution and multi-tenant operation; its production guidance is nonetheless the best public writing on this form, and reading it costs nothing | Yes |
 
 ---
