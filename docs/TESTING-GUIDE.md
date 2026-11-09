@@ -34,13 +34,52 @@ You should see a vertical video with captions, a settings column on the right, a
 
 **① Every shell command will ask for your approval.** On this machine macOS refuses to start the nested sandbox the agent normally uses, so each command needs a click. This is not the agent failing — it is the machine. Approve them; if it becomes unbearable, say so in your report (it is a strong argument for a fix).
 
-**② A render takes 45–60 seconds.** While it runs the button says **"Rendering…"** and the log box under the player counts up (`…encoding 20% … 90%`). If both are static, nothing is running.
+**② The log box is the only sign a render is alive.** While it runs the button says **"Rendering…"** and the log counts up (`…encoding 20% … 90%`). If both are static, nothing is running.
 
-### 0.4 Choose your track
+### 0.4 What things cost (measured on this machine, not guessed)
+
+Rendering is not one fixed time — it scales with how much video you render. Measured on the preview
+path (540p from the cached proxy), three real renders:
+
+| rendered passage | took |
+|---|---|
+| 8.1 s | 18 s |
+| 55.3 s | 43 s |
+| 104.1 s | 66 s |
+
+Which fits closely to **≈14 s of fixed cost + half a second per second of video**. So:
+
+| passage | predict | |
+|---|---|---|
+| 30 s | ~29 s | one reel beat |
+| 1 min | ~44 s | |
+| 2 min | ~75 s | |
+| 5 min | ~2.8 min | |
+| 10 min | ~5.3 min | a whole long-form blog |
+| 20 min | ~10.3 min | at the server's 15-minute kill limit |
+
+The first three rows are **measured**; below 2 minutes is extrapolation from the same line, so treat it
+as a good estimate rather than a promise.
+
+**The important consequence:** the pane renders **the window you are working on**, not the whole file.
+So your iteration cost is set by the passage you are fixing, not by how long the video is. Editing a
+20-minute interview in 60-second windows costs the same per iteration as editing a 1-minute clip.
+
+**Preparation is the expensive part, and it does scale with the source.** Measured: 8 minutes of
+4K60 phone footage took **33 minutes** to prepare (0.24× realtime — the decoder, not our code). So a
+2-minute 4K clip is ~8 minutes; a 30-minute one is ~2 hours. Nobody has measured a 1080p source here
+yet, so I will not claim a number for it — it should be much cheaper, and that is worth measuring when
+you have one.
+
+One thing that does **not** exist yet: the final 1080p render from the 4K master. That will be
+decode-bound like preparation (~4× the program length), which is why it is on the list below rather
+than in your test plan.
+
+### 0.5 Choose your track
 
 | Track | What it tests | Cost |
 |---|---|---|
-| **T1 — the layers** (start here) | captions, graphics, B-roll, notes, review on the **already-prepared** project | ~45 min, each iteration ≈1 min |
+| **T1 — the layers** (start here) | captions, graphics, B-roll, notes, review on the **already-prepared** project | ~45 min, each iteration ≈45 s |
 | **T2 — from raw footage** | the real first request: a new file, prepared and cut from scratch | +40 min for a long clip, ~5 min for a short one |
 
 Do T1 first — it exercises everything except preparation, and it is fast. Then run T2 once to prove the beginning of the pipeline.
@@ -255,6 +294,8 @@ Every control has a tested backend; this is a smoke test that the UI honours it.
 | **Cut judgement is audio-only** | it hears stumbles and beats; it cannot tell whether a cut *looks* jumpy mid-gesture |
 | **Window suggestions are text-only** | the agent reads the transcript; it has not seen the frames |
 | **One video at a time** | no batch, no "three shorts from one long video" |
+| **One window at a time** | the pane edits a chosen passage. There is no "render the whole 20-minute interview in one file" control yet — and the server kills any render at 15 minutes, which is ~28 minutes of video |
+| **Long-form has never been tested end to end** | only 45–105 s passages have actually been rendered. The multi-window path exists on paper, not in evidence |
 
 ---
 
@@ -287,7 +328,7 @@ step | what I expected | what happened
 
 ## Speed and friction
 - how annoying were the approval prompts? (1 = fine, 5 = unusable)
-- was 45–60 s per render acceptable? what would you accept?
+- was ~45 s per iteration on this preview path acceptable? what would you accept for a 2-minute window (~75 s)?
 ```
 
 ---
@@ -296,7 +337,7 @@ step | what I expected | what happened
 
 | | |
 |---|---|
-| T1 layers | ~45 min (≈1 min per re-render) |
+| T1 layers | ~45 min (≈45 s per re-render) |
 | T2 from raw | ~50 min (≈5 min preparation for a short clip) |
 | T3 buttons | ~15 min |
 | **Total** | **under two hours** |

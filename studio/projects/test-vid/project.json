@@ -67,9 +67,9 @@
     "graphics": "broll"
   },
   "lastRender": {
-    "file": "test-vid-pane-defaults.mp4",
-    "label": "pane-defaults",
-    "at": "2026-11-09T15:26:21.315Z",
+    "file": "test-vid-scale-120.mp4",
+    "label": "scale-120",
+    "at": "2026-11-09T15:35:32.748Z",
     "captions": true,
     "settings": {
       "captions": true,

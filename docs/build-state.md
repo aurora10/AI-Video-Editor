@@ -44,6 +44,32 @@ Verified through the real API, not the source: `GET /video/api/state?project=tes
 
 The skill's `references/pipeline.md` says both things, so a fresh agent does not have to discover them.
 
+### What a render actually costs (measured, not assumed)
+
+I had been quoting "45–60 s per render", which was one window on one project stated as a law. Three
+timed renders replace it:
+
+| rendered passage | wall time |
+|---|---|
+| 8.1 s | 18.0 s |
+| 55.3 s | 42.9 s |
+| 104.1 s | 66.2 s |
+
+Least-squares fit: **`wall ≈ 14.3 s + 0.502 × program_seconds`**, predicting all three points within
+2.7 %. Extrapolations the guide now publishes (labelled as extrapolation, since measurements stop at
+104 s): 2 min → ~75 s · 5 min → ~2.8 min · 10 min → ~5.3 min · 20 min → ~10.3 min.
+
+Two consequences worth remembering:
+
+1. **Iteration cost is set by the window, not by the file.** Editing a 20-minute interview in 60-second
+   windows costs the same per iteration as a 1-minute clip. This is why the pane edits a passage.
+2. **The clock that scales with the file is preparation**, at 0.24× realtime for 4K60 (8 min → 33 min
+   measured) — and the final 1080p render will be decode-bound in the same way. No 1080p source has
+   been ingested here, so the guide says so instead of inventing a number.
+
+Also recorded as a limit: the server kills any render at 15 minutes, i.e. roughly 28 minutes of video,
+so "render the whole long-form in one file" is not a thing yet.
+
 ## Gates
 
 | Step | State | Verification | Notes |

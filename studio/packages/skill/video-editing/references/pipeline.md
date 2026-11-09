@@ -105,6 +105,15 @@ Useful flags: `--from`/`--to` (accepts `m:ss` or seconds), `--captions word|phra
     540x960 · 55.30s · 4.1 MB · rendered in 42.9s
 ```
 
+**How long it will take** — measured on this machine, not estimated: `wall ≈ 14 s + 0.5 × program
+seconds` (8.1 s → 18 s · 55.3 s → 43 s · 104 s → 66 s). So a 2-minute passage is ~75 s, a 10-minute
+one is ~5 min. Tell the user the estimate **before** starting anything longer than a couple of
+minutes, and remember the pane's server kills a render at 15 minutes (~28 min of video).
+
+Never render the whole source to let the user "review everything": render the window under review.
+Preparation, not rendering, is what scales with the length of the file (4K60 on this machine:
+0.24× realtime, so 8 minutes of footage is ~33 minutes of work).
+
 ## 6. Verify before you claim anything
 
 ```sh
