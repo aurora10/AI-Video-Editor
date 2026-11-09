@@ -48,6 +48,17 @@ pnpm dsh --profile studio --no-open                               # boot (webser
 
 Then open <http://127.0.0.1:3099>, start a chat session, and look for the **Studio** tab.
 
+### The short way (what non-developers should use)
+
+```sh
+./start.sh          # or: pnpm start
+```
+
+That is the whole thing. It finds the harness checkout, generates the profile on a first run
+(`scripts/bootstrap-profile.mjs`, because the profile holds absolute paths and cannot be committed),
+refreshes the agent's skill, refuses to start a second server if one is already listening, and boots on
+port 3099. `Ctrl+C` stops it.
+
 `pnpm dsh` is `pnpm --dir ~/Desktop/deepseek-harness dsh …`. Note `dsh web` is a hardcoded alias for
 `--profile web`; custom profiles boot as `dsh --profile <name>` with the app's own flags after it.
 

@@ -2,7 +2,26 @@
 
 One row per step. **A step is `pass` only when the verification command's output is pasted here.** States: `todo · wip · pass · fail · blocked · cut`.
 
-Last updated: session 15 — **the agent now knows how to drive the system.** A `video-editing` skill is installed into the profile's skills directory, and the testing guide was rewritten around the real workflow (raw file → plain-language request → judgement → next layer) instead of a pre-processed project.
+Last updated: session 17 — **you can now start it with one command from a fresh clone.** `./start.sh` finds the harness, generates the profile if it is missing, refreshes the agent's skill, and refuses to start a second server. The testing guide gained a Day 0, a plain-language pipeline explainer, a glossary, a folder map, and troubleshooting.
+
+## Onboarding was missing, and the guide started after it (session 17)
+
+The owner's report: "I miss essential setup steps — how to start a server, what happens after I place video in the folder, what should be done first. Do not assume I know anything about video editing."
+
+Three real gaps behind that, not just missing prose:
+
+1. **No way to start it that a non-developer could follow.** The documented path was `pnpm dsh --profile studio --no-open` after a five-step `dsh plugin add` plus two hand-edits of the profile manifest — and `pnpm dsh` does not exist in `studio/` (the harness owns that bin), so even the short form failed with `Command "dsh" not found`. Built `start.sh` (`pnpm start`): finds the harness checkout (env override, then relative candidates, then `~/Desktop`), pins `DSH_HOME` to the repo-local home, refuses to start a second server if port 3099 already answers, prints the URL.
+2. **A fresh clone could not boot at all.** `studio/.dsh-home/` is gitignored because the profile holds absolute `link:` paths — correct hygiene, but it left the entire profile as unversioned generated state that existed only on my disk. Built `scripts/bootstrap-profile.mjs`: recreates the manifest and support files, and runs the profile's own `pnpm install` when the links change (a linked bundle does not bring its deps into the profile's resolution root). `start.sh` calls it; silent when there is nothing to do.
+3. **The guide assumed a running server and a prepared project**, and explained none of the vocabulary. Rewritten with Part 0 (day one), Part 1 (what actually happens to the video, in plain words), Part 2 (glossary for a non-editor), Part 3 (where files live), Part 4 (the order of work), Part 7 (troubleshooting), and the caveat that dropping a file does nothing until you ask.
+
+**Verified rather than assumed:**
+
+- **Rebuilt the profile from nothing** — `rm -rf .dsh-home/profiles/studio`, then `./start.sh`: it printed `first run: preparing the studio profile… done`, booted, `/` returned 200 and `/video/api/state` returned the project. The profile in use now *is* the bootstrapped one (the previous copy was backed up first).
+- **Idempotency:** a second `./start.sh` printed `Already running — nothing to start.` and exited 0.
+- **The UI text the guide quotes is measured, not remembered.** A headless probe of the live page gave the landing controls (`New session`, composer placeholder `Describe what you want to build`), the in-session tabs (`Chat`, `Trajectory`, `Studio`), and the pane's own labels (window group, ★ candidate titles, composer buttons, the `latest: …` line, every settings group). One bug fell out of it: the pane's footer still said "Timeline scrubbing, point-and-instruct notes and drag editing arrive with the overlay editor", which stopped being true two sessions ago. Rewritten to describe what exists, then rebuilt (29.9 KB) and passed the bundle contract check.
+- **The skill is injected in the GUI**, not merely discoverable from the CLI: the probe's transcript shows a `skill-catalog` context injection on the first turn, and the agent replied.
+
+Still open: the guide's ~45 min / ~45 s estimates are per-step measurements, not a full walk-through — nobody has run T1 end to end in one sitting yet.
 
 ## The missing piece: the agent had no instructions (session 15)
 

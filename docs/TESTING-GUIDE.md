@@ -1,145 +1,299 @@
 # DSH Studio — Testing Guide
 
-**What this tests:** the way you will actually work — drop footage in a folder, say what you want, look at the result, ask for the next layer.
+## What this is, in plain words
 
-**Not this:** clicking buttons. The buttons exist, and **T3** exercises them, but they are the secondary surface. The primary surface is the conversation with the agent, with the video as the thing you judge.
+It is **two things side by side**.
+
+In the conversation you type what you want in normal language — *"cut the bad takes out of this, the
+pauses too"* — and an AI assistant does it and tells you what it decided.
+
+In the **Studio** tab next to the conversation is a video editor: the video you are working on, a
+settings column, and a bar under the player you can click and drag. You watch what the AI made. If you
+don't like it, you say so and it tries again.
+
+You never have to learn a video editing program. You watch the result and say what's wrong with it. That
+is the whole idea being tested: **can a person who does not edit video get a video edited by explaining
+what they want.**
+
+## What you are not testing
+
+Clicking buttons is the *small* part. The buttons exist and are tested (T3), but the product is the
+conversation: you say something, a video comes back, you judge it.
 
 ---
 
-## How to read this
+# Part 0 — Day one: getting it running (10 minutes)
 
-Every step has the same shape:
+Do these in order. Nothing here needs technical knowledge except one line copied into a terminal.
+
+## 0.1 Start the server
+
+1. Open **Terminal** (`Cmd + Space`, type `terminal`, Enter).
+2. Type these two lines, pressing Enter after each:
+
+   ```
+   cd "/Users/albert/Desktop/CodeWork/Video Editor AI/studio"
+   ./start.sh
+   ```
+
+   *If typing that path is awkward:* type `cd ` (with a trailing space), drag the `studio` folder from
+   Finder into the Terminal window, then press Enter.
+
+3. You will see a few lines, then:
+
+   ```
+   harness:  /Users/albert/Desktop/deepseek-harness
+   profile:  studio
+   home:     …/studio/.dsh-home
+
+   starting… this takes about 10 seconds.
+   ```
+
+   Then log lines scroll past — normal. **Leave this window open.** Closing it stops the server.
+
+4. If it prints `Already running — nothing to start.`, the server was already up. Go to 0.2.
+
+**The very first time on a new machine** the first line says `first run: preparing the studio
+profile… done` — a one-time setup that takes about a minute.
+
+## 0.2 Open the page
+
+In Chrome, go to:
+
+```
+http://127.0.0.1:3099
+```
+
+Press **`Cmd + Shift + R`** — a *hard* reload. Without it you may be looking at an old copy of the page
+and reporting problems that were already fixed.
+
+You should see a chat window: a sidebar of sessions on the left, and a message box at the bottom saying
+*"Describe what you want to build"*.
+
+## 0.3 Start a conversation
+
+1. Click **New session** (top of the sidebar).
+2. Type anything in the box — *"hello"* is enough the first time — and press **Enter**.
+
+The AI replies. Now look above the conversation: three tabs — **Chat · Trajectory · Studio**.
+
+> **The Studio tab only appears inside an open conversation.** On the session list it is gone. That is
+> not a bug; the editor belongs next to the video's conversation.
+
+## 0.4 Click Studio — this is the editor
+
+The right side fills with the editor. Top to bottom:
+
+| What you see | What it is |
+|---|---|
+| **WINDOW — WHICH PART OF THE FOOTAGE** | which piece of the source video you are editing. Useful when the source is a 40-minute recording and you want a 60-second piece out of it |
+| `editing source 3:42.6–4:27.9 (45s, candidate)` | the current choice, in timecode. "candidate" means the AI suggested it |
+| **Suggest windows with AI** and the ★ buttons | click one and that part of the video becomes the one you're editing |
+| the video itself | the newest render, playable in place |
+| `0:00.0 / 1:43.6` and the bar under it | where you are, and the timeline. Click to jump, drag to select a stretch |
+| **Cut · No captions · Text card · Image · Instruction** + **Add note at playhead** | the composer: select a stretch, then leave a note about it |
+| the notes list (`NO CAPTIONS 0:30.0 …`) | every note you left, with an × to delete it |
+| **Re-render · Plan cuts with AI · Ask for a review** | do the work, or ask the AI about it |
+| `latest: …mp4` | which file you are watching |
+| **CAPTIONS / FONT / SOUND / PACE / MUMBLES / FORMAT / BACKGROUND / GRAPHICS** | the settings column, exercised in T3 |
+
+If you see all of that, everything underneath is working. If the tab is there but blank, the page is
+stale — hard reload; if it persists, tell me.
+
+## 0.5 How to stop it
+
+Click the Terminal window you left open and press **`Ctrl + C`**. The browser tab will then show errors
+until you start the server again.
+
+## 0.6 Two things that will annoy you, and why
+
+**① Every command the AI runs asks for your approval.** You will click "approve" a lot. That is not how
+the product should behave — it is this laptop: macOS refuses to start the sandbox the AI normally runs
+in, so each command needs a click. Please note it in the report; it is one of the things I most want to
+know.
+
+**② Things take tens of seconds.** A 45-second passage renders in about 45 seconds. While it runs the
+button says **Rendering…** and the log under the player counts up (`…encoding 20% … 90%`). If both are
+frozen, nothing is running — see Part 7.
+
+---
+
+# Part 1 — What happens to your video
+
+Five minutes here makes everything else make sense.
+
+## Nothing happens until you ask
+
+Dropping a file into the folder does **nothing** on its own. It sits there until you tell the AI about
+it. That is deliberate — you don't want an AI cutting footage because you saved a file.
+
+## What the AI does with it, in order
+
+When you say *"there's a new video in the incoming folder — prepare it and remove the bad takes and the
+silences"*, four things happen:
+
+**1. It looks at the file** (seconds). Size, resolution, frame rate, sound. It tells you what it sees.
+
+**2. It makes a lightweight copy to work from** (minutes — the slow part). Editing works from a small
+copy so every preview is fast. This happens **once per video**, not per edit, and it is cached: come back
+tomorrow and it is still done.
+
+**3. It writes down where every word is** (a minute or so). The sound is transcribed word by word with
+timings — that is what makes captions possible and what lets the AI find pauses and stumbles.
+
+**4. It finds your face and your silences** (seconds). Where your chin is (so captions don't cover it)
+and where every pause is.
+
+**Then it reports what it found and proposes a cut** — how many pauses, how much dead air, what it would
+remove. You read that, and only then does a video appear.
+
+## What that means for you
+
+- The first video of the day takes a while; the second request on the same video is fast.
+- The AI is not watching your face while it cuts. It hears stumbles, hesitations and pauses; it cannot
+  tell whether a cut *looks* like a jump mid-gesture. That is the biggest known gap — exactly what your
+  eyes are for.
+- Every change costs one re-render. Short passage, short wait.
+
+---
+
+# Part 2 — The words I use
+
+No video-editing background assumed. If a word below is unfamiliar, this is what it means here.
+
+| Word | What I mean |
+|---|---|
+| **Cut** | removing a piece of video so what remains plays continuously |
+| **Jump cut** | the small visual jolt when two distant moments are joined. Sometimes wanted, sometimes jarring |
+| **Take / bad take** | a version of a sentence you recorded; usually you keep the last and cut the earlier ones |
+| **Silence / dead air / pause** | time with no talking. Some is good (a breath makes a point land), most is waste |
+| **Mumble / filler** | "um", "uh", "so", throat-clears, a sentence started and abandoned |
+| **Passage / window** | a stretch of the video, e.g. 3:42 to 4:27 |
+| **Caption** | words on screen matching what is being said |
+| **B-roll** | other footage shown while you keep talking — cutaways that make a video less static |
+| **Motion graphics** | designed text/cards/animations on screen: titles, statistics, quotes |
+| **Render** | the computer producing a finished video file from your edit |
+| **Preview vs final** | preview is a small, fast version for judging; final would be full quality. **Only preview exists so far** |
+| **Lightweight copy (proxy)** | the small copy the editor works from, so previews are quick |
+| **Timeline** | the bar under the player. Left edge is the start, right edge the end of the passage |
+
+---
+
+# Part 3 — Where your files live
+
+Everything is inside `studio/`. Three folders matter:
+
+```
+studio/fixtures/incoming/     ← drop your raw video here
+studio/projects/<name>/       ← the AI's workspace for that video (notes, cut decisions, assets)
+studio/out/                   ← the videos it has made. This is where you watch results
+```
+
+You only ever need the first and the third. `projects/` is what the AI reads and writes; don't tidy it.
+
+One project already exists, called **`test-vid`** — an 8-minute Russian talking-head video, already
+prepared, transcribed and cut once. That is what you start with, so the interesting parts can be tested
+without waiting.
+
+---
+
+# Part 4 — The order you'll actually work in
+
+You don't have to do all of this. Each step ends with a video you can watch, and you can stop at any
+layer.
+
+```
+1. give it a video          →  "prepare this, remove the bad takes and silences"
+2. watch it, say what's off →  "too fast between 4:05 and 4:20"
+3. captions                 →  "put captions on, word by word"
+4. graphics / B-roll        →  "generate some graphics, show me first"
+5. review                   →  "watch it and tell me what's weak"
+```
+
+Each step is one conversation turn plus one wait. If a step gets worse, say so in the words you would use
+with a human editor — that is what is being tested.
+
+---
+
+# Part 5 — How to read the tests
+
+Every step from here has the same shape:
 
 > **Say** — what you type in the chat
-> **Expect** — what the agent does and what appears
+> **Expect** — what happens and what appears
 > **Judge** — the question only you can answer
 
-Fill in the boxes. The report template is at the end.
+Write your answers in the empty boxes. The report template is at the end.
 
 ---
 
-## 0. Setup (5 minutes)
+# Part 6 — What things cost (measured, not guessed)
 
-### 0.1 Hard-reload the GUI
+Rendering scales with how much video you render. Measured on the preview path, three real renders:
 
-**`Cmd + Shift + R`** on http://127.0.0.1:3099. A stale bundle will make you report bugs that no longer exist.
-
-### 0.2 Open a session and look at the Studio tab
-
-Click the session in the left sidebar → the header shows **Chat · Trajectory · Studio** → click **Studio**.
-
-You should see a vertical video with captions, a settings column on the right, and a timeline bar under the player. If you see all that, the machinery underneath is alive.
-
-### 0.3 Two things to know before you start
-
-**① Every shell command will ask for your approval.** On this machine macOS refuses to start the nested sandbox the agent normally uses, so each command needs a click. This is not the agent failing — it is the machine. Approve them; if it becomes unbearable, say so in your report (it is a strong argument for a fix).
-
-**② The log box is the only sign a render is alive.** While it runs the button says **"Rendering…"** and the log counts up (`…encoding 20% … 90%`). If both are static, nothing is running.
-
-### 0.4 What things cost (measured on this machine, not guessed)
-
-Rendering is not one fixed time — it scales with how much video you render. Measured on the preview
-path (540p from the cached proxy), three real renders:
-
-| rendered passage | took |
+| passage | took |
 |---|---|
-| 8.1 s | 18 s |
-| 55.3 s | 43 s |
-| 104.1 s | 66 s |
+| 8 s | 18 s |
+| 55 s | 43 s |
+| 104 s | 66 s |
 
-Which fits closely to **≈14 s of fixed cost + half a second per second of video**. So:
+Which fits **≈14 s of fixed cost + half a second per second of video**: 30 s → ~29 s, 2 min → ~75 s,
+10 min → ~5.3 min. The first three are measured; past 2 minutes is extrapolation from the same line.
 
-| passage | predict | |
-|---|---|---|
-| 30 s | ~29 s | one reel beat |
-| 1 min | ~44 s | |
-| 2 min | ~75 s | |
-| 5 min | ~2.8 min | |
-| 10 min | ~5.3 min | a whole long-form blog |
-| 20 min | ~10.3 min | at the server's 15-minute kill limit |
+**The consequence that matters:** the editor renders **the passage you are working on**, not the whole
+file. Editing a 20-minute interview in 60-second windows costs the same per iteration as editing a
+1-minute clip.
 
-The first three rows are **measured**; below 2 minutes is extrapolation from the same line, so treat it
-as a good estimate rather than a promise.
+**Preparation is the slow part, and it scales with the video**, because it decodes the original — 8
+minutes of 4K60 phone footage took **33 minutes** here. Why, and what to do:
 
-**The important consequence:** the pane renders **the window you are working on**, not the whole file.
-So your iteration cost is set by the passage you are fixing, not by how long the video is. Editing a
-20-minute interview in 60-second windows costs the same per iteration as editing a 1-minute clip.
-
-**Preparation is the expensive part, and it does scale with the source.** Measured: 8 minutes of
-4K60 phone footage took **33 minutes** to prepare — 0.24× realtime for the whole preparation step
-(0.29× for decode alone; the rest is scaling and encoding the proxies), so it is the decoder's cost,
-not the code.
-
-Why, and what to do about it. Decode-only, same 30 seconds of footage, on this machine:
-
-| source | decodes at | 2 min source | 30 min source |
+| your video | prepares at | 2 min video | 30 min video |
 |---|---|---|---|
-| **4K60 HEVC** (typical phone) | **0.29× realtime** | ~7 min | ~1 h 45 min |
-| 4K60 H.264 | 2.9× realtime | ~40 s | ~10 min |
-| 1080p60 HEVC | 6.3× realtime | ~20 s | ~5 min |
-| **1080p60 H.264** | **10.9× realtime** | ~11 s | **~3 min** |
+| 4K60 HEVC (phone default) | 0.29× realtime | ~7 min | ~1 h 45 min |
+| 4K60 H.264 | 2.9× | ~40 s | ~10 min |
+| 1080p60 HEVC | 6.3× | ~20 s | ~5 min |
+| **1080p60 H.264** | **10.9×** | ~11 s | **~3 min** |
 
-So the wait is not "your laptop is slow" in general — it is this 2012 chip having **no HEVC decoder in
-silicon** (its hardware video engine only knows H.264, and VideoToolbox measured *slower* than software
-here, so there is no hardware path to fall back on). Four times the pixels and a much harder codec,
-decoded on the CPU, gives the ~37× spread above.
+This laptop is from 2012 and has **no hardware decoder for HEVC**, which is what phones record — so it
+falls back to slow software decoding. **The fix is free:** export the clip as **1080p H.264** before
+dropping it in (iPhone: Settings → Camera → Formats → Most Compatible, then export from Photos at 1080p).
+A 30-minute video then prepares in ~3 minutes instead of two hours, and editing is unchanged.
 
-**The practical fix costs nothing:** export the clip as **1080p H.264** before dropping it in the folder
-(on an iPhone: Settings → Camera → Formats → Most Compatible, then export from Photos at 1080p). A
-30-minute source then prepares in about three minutes instead of two hours, and the edit loop — which
-works from the 540p proxy — is unaffected. Keep the original 4K file for the final render.
+Preparation is paid **once per video**, and it is cached.
 
-Two caveats so this table is not over-read: my test variants were encoded at `ultrafast`, so real
-camera H.264 decodes somewhat slower than the line above; and these are 30-second slices, while
-preparation also scales and encodes its proxies (a further ~10–20 %).
-
-**Preparation is paid once per file, not per edit** — the proxies are cached, which is why the edit
-loop stays fast.
-
-One thing that does **not** exist yet: the final 1080p render from the 4K master. That will be
-decode-bound like preparation (~4× the program length), which is why it is on the list below rather
-than in your test plan.
-
-### 0.5 Choose your track
-
-| Track | What it tests | Cost |
-|---|---|---|
-| **T1 — the layers** (start here) | captions, graphics, B-roll, notes, review on the **already-prepared** project | ~45 min, each iteration ≈45 s |
-| **T2 — from raw footage** | the real first request: a new file, prepared and cut from scratch | +40 min for a long clip, ~5 min for a short one |
-
-Do T1 first — it exercises everything except preparation, and it is fast. Then run T2 once to prove the beginning of the pipeline.
+Two honest caveats: the test copies above were encoded with fast settings, so real camera H.264 decodes
+somewhat slower; and nothing longer than 105 seconds has been rendered, so the long-form rows are
+estimates.
 
 ---
 
-# T1 — The layers, on prepared footage
+# T1 — The layers, on prepared footage (≈45 min)
 
-The project `test-vid` is already prepared, transcribed and analysed. That is deliberate: it lets you test the parts that involve *judgement and review* without waiting 40 minutes.
+`test-vid` is already prepared. Each step is a sentence you actually say, then a video to judge. Each
+re-render is about 45 seconds.
 
 ## T1.1 — "Let me see what you have" (2 min)
 
 > **Say:** *"Show me the current state of the test-vid project and the latest render."*
 
-**Expect:** the agent reports the window being edited (a source time range), the settings, how many notes exist, the path of the last render, and where the footage lives. It may mention which window the last render came from.
+**Expect:** which passage you're editing, the settings, how many notes exist, the path of the latest
+render, and where the footage is on disk.
 
-> **Judge:** was that summary accurate and readable? Did it tell you *where* the video is?
+> **Judge:** was that summary accurate and understandable? Did it tell you *where* the video is?
 
 ```
 ```
 
 ## T1.2 — "Remove the bad takes and silences" (10 min)
 
-This is your first real request, on footage that is already cut. You are testing whether asking in plain language produces editorial work.
+> **Say:** *"Cut the bad takes and the silences from the 3:42–4:27 window. Decide yourself how much of
+> each pause to keep, and tell me what you decided."*
 
-> **Say:** *"Cut the bad takes and the silences from the 3:42–4:27 window. Decide yourself how much of each pause to keep, and tell me what you decided."*
+**Expect:** approval prompts (approve them) → a render with a progress log → a report listing each pause
+and what it did, e.g. *"cut hard on «я не знал ⟪⟫ он мог это сделать» (a false start), kept 320 ms after
+«Бог очень слабый»"* → a file path.
 
-**Expect:**
-1. Approval prompts for its commands — approve them
-2. A render starts; the log box counts up
-3. It reports back a **per-pause list with reasons**, e.g. *"cut hard on «я не знал ⟪⟫ он мог это сделать» (a false start), kept 320 ms after «Бог очень слабый»"*
-4. A file path and a duration
-
-> **Judge:** does the cutting feel like an editor made it? Which decision was wrong?
-> *(The most useful answer names a moment: "it cut too early at 4:02".)*
+> **Judge:** does the cutting feel like an editor made it? Which single decision was wrong?
 
 ```
 ```
@@ -148,7 +302,8 @@ This is your first real request, on footage that is already cut. You are testing
 
 > **Say:** *"Between 4:05 and 4:20 it feels rushed. Give the pauses more room there and show me."*
 
-**Expect:** it changes decisions only for those pauses, re-renders, and the passage breathes more. Total length grows slightly.
+**Expect:** only those pauses change, a re-render, and the passage breathes more. Total length grows
+slightly.
 
 > **Judge:** did it change *only* that region, or did the whole cut shift?
 
@@ -159,62 +314,66 @@ This is your first real request, on footage that is already cut. You are testing
 
 > **Say:** *"Add captions — word by word — and tell me where they sit and how many there are."*
 
-**Expect:** captions appear below your chin; the agent reports the page count, the style, and that it checked the captions clear your face.
+**Expect:** captions under your chin; a report of page count, style, and that it checked they clear your
+face.
 
-> **Judge:** readable? sized right? positioned right? Is the word-by-word rhythm comfortable or too busy?
+> **Judge:** readable, right size, right position? Is word-by-word comfortable or too busy?
 
 ```
 ```
 
-## T1.5 — "Generate some graphics, show me first" (10 min)
+## T1.5 — "Generate graphics, show me first" (10 min)
 
-This is the step you asked for: **review the assets before they go in the video.**
+> **Say:** *"Generate three graphics ideas that fit this argument — a title card, a stat card, and
+> something for the 95/5 contrast. Put them in a folder I can look at; don't put them in the video yet."*
 
-> **Say:** *"Generate three motion-graphics ideas that would fit this argument — a title card, a stat card, and something for the 95/5 contrast. Put them in a folder I can look at; don't put them in the video yet."*
+**Expect:** image files under `projects/test-vid/assets/`, with **paths**, a description of each, and
+where each would go. The video does not change.
 
-**Expect:** the agent creates image files under `projects/test-vid/assets/`, gives you the **paths**, and says what each is and where it would go. Nothing changes in the video yet.
-
-> **Judge:** were the paths clickable/openable? Did the ideas fit the argument? Could you actually see them?
+> **Judge:** could you open the files? Did the ideas fit the argument?
 
 ```
 ```
 
 ## T1.6 — "Put them in where appropriate" (10 min)
 
-> **Say:** *"Use the stat card and the 95/5 one. Put them where they help the argument, not over my face."*
+> **Say:** *"Use the stat card and the 95/5 one. Put them where they help the argument, not over my
+> face."*
 
-**Expect:** it writes placements (which second, which corner, how big), re-renders, and reports each placement with a reason. Images land **on the side away from your face**.
+**Expect:** placements (which second, which corner, how big), a re-render, and a reason for each. Images
+land **on the side away from your face**.
 
-> **Judge:** were the placements good? Too big, too small, on screen too long, too short?
+> **Judge:** good placements? Too big, too small, too long on screen?
 
 ```
 ```
 
 ## T1.7 — "Insert B-roll as you see fit" (10 min)
 
-> **Say:** *"Add B-roll where you think it helps. Use what is in the assets folder, or tell me what you are missing."*
+> **Say:** *"Add B-roll where you think it helps. Use what's in the assets folder, or tell me what you're
+> missing."*
 
-**Expect:** either placements with reasoning, or an honest answer that the asset folder has no usable B-roll plus a list of what it needs. **Both are acceptable** — the second is the more likely outcome right now.
+**Expect:** either placements with reasoning, or an honest "there is no usable B-roll here; I would need
+X". **Both are acceptable** — the second is more likely.
 
-> **Judge:** if it improvised, was the timing right? If it asked, was the request specific enough to act on?
+> **Judge:** if it improvised, was the timing right? If it asked, was the request actionable?
 
 ```
 ```
 
 ## T1.8 — Review in the pane and leave notes (10 min)
 
-Now test the review loop itself, which is the reason the pane exists.
-
 | # | Do this | Expect |
 |---|---|---|
-| 1 | Play the video; click the timeline bar at a moment you dislike | the video jumps there; a yellow playhead moves |
-| 2 | Drag along the bar to select a few seconds | a blue selection appears, readout shows `selected 0:12.0–0:18.0` |
-| 3 | Composer → **No captions** → **Add note for selection** | a row appears in the notes list; a render starts |
+| 1 | Play the video; click the bar under the player | the video jumps there; the yellow playhead moves |
+| 2 | Drag across the bar | a blue selection appears; readout shows `selected 0:12.0–0:18.0` |
+| 3 | Composer → **No captions** → **Add note at playhead** | a row appears in the notes list; a render starts |
 | 4 | Play that stretch in the result | captions gone **exactly there**, unchanged elsewhere |
-| 5 | Composer → **Cut**, select a stumble, Add | the stretch is removed; the video shortens |
-| 6 | Composer → **Instruction**, type *"make the captions bigger from here"*, Add | the note is stored but **nothing changes** — the renderer cannot act on free text, and the render log says `needs the agent` |
+| 5 | Composer → **Cut**, select a stumble, add it | the stretch is removed; the video shortens |
+| 6 | Composer → **Instruction**, type *"make the captions bigger from here"* | the note is stored but **nothing changes** — free text is for the AI, not the renderer; the log says `needs the agent` |
 
-> **Judge:** was leaving a note faster and clearer than typing the same thing in chat? Step 6 especially — was it obvious that Instruction notes do nothing on their own?
+> **Judge:** was leaving a note clearer than typing the same thing in chat? Step 6 especially — was it
+> obvious that Instruction notes do nothing on their own?
 
 ```
 ```
@@ -223,52 +382,51 @@ Now test the review loop itself, which is the reason the pane exists.
 
 > **Say:** *"Watch the latest render and tell me what is weak about it."*
 
-**Expect:** the agent reads the numbers (transcript, cut plan, notes, render log) and gives specific criticism, or admits it cannot see the frames. It should **not** invent impressions of the picture.
+**Expect:** specific criticism from the numbers it can read (transcript, cut decisions, notes, render
+log), or an honest "I cannot see the frames". It should **not** invent impressions of the picture.
 
-> **Judge:** was the criticism specific and useful, or generic? Did it pretend to have watched?
+> **Judge:** specific and useful, or generic? Did it pretend to have watched?
 
 ```
 ```
 
 ---
 
-# T2 — From raw footage (the real first day)
+# T2 — From raw footage (the real first day, ≈50 min)
 
-Run this once. It is slow only because of 4K HEVC: 8 minutes of it takes ~33 minutes to prepare on this
-machine, or ~3 minutes if you export 1080p H.264 first (§0.4).
+Run this once, with a **short clip** if you have one.
 
 ## T2.1 — Put the file where the system expects it
 
-Drop a raw video into:
+Drop a video into `studio/fixtures/incoming/`. Ideally **1–3 minutes** and ideally **1080p H.264** (Part
+6 explains why): a 1-minute 4K60 HEVC clip costs ~4 minutes of preparation and a 3-minute one ~12,
+while the same clips as 1080p H.264 cost well under a minute each.
 
-```
-studio/fixtures/incoming/
-```
-
-**Use a short clip** if you have one, and export it as 1080p H.264 (see §0.4): a 1-minute 4K60 HEVC
-clip costs ~4 minutes of preparation, a 3-minute one ~12 minutes, but the same clips as 1080p H.264
-cost well under a minute each.
+**Then nothing happens.** Confirm that, and confirm the AI tells you what to do about it.
 
 ## T2.2 — The first real request
 
-> **Say:** *"There is a new video in the incoming folder. Prepare it and remove the bad takes and the silences. Tell me what you find before you cut anything."*
+> **Say:** *"There is a new video in the incoming folder. Prepare it and remove the bad takes and the
+> silences. Tell me what you find before you cut anything."*
 
 **Expect, in this order:**
 1. It lists the folder and confirms which file (it should ask if there is more than one)
-2. It starts preparing: probe numbers appear (`3840x2160 @ 60 fps · hevc · 2.71 GB`), then `…preview 20% … 100%`, then the scrub proxy, then `record written`
-3. It transcribes and reports word count, segment count, cost, and detected language
-4. It reports what it found: how many pauses, how much dead air, any stumbles
+2. It starts preparing: `3840x2160 @ 60 fps · hevc · … GB`, then `…preview 20% … 100%`, then the
+   lightweight copy, then `record written`
+3. It transcribes and reports word count, segment count, cost, detected language
+4. It reports what it found: pauses, dead air, stumbles
 5. **Only then** does it propose a cut and render
 
-> **Judge:** did it talk to you *before* cutting, as asked? Did the numbers make sense — dead air %, language, word count?
+> **Judge:** did it talk to you *before* cutting, as asked? Did the numbers make sense — dead air %,
+> language, word count?
 
 ```
 ```
 
 ## T2.3 — The acceptance question
 
-> **Judge:** watch the result. **Would you have paid an editor for this cut?**
-> If not, name the single worst moment. That one sentence is the most valuable thing in your report.
+> **Judge:** watch the result. **Would you have paid an editor for this cut?** If not, name the single
+> worst moment. That sentence is the most valuable thing in your report.
 
 ```
 ```
@@ -277,30 +435,33 @@ cost well under a minute each.
 
 > **Say:** *"I like it. Now put captions on it."*
 
-**Expect:** the same caption behaviour as T1.4, on the new footage — which proves the pipeline is general, not tuned to one clip.
+**Expect:** the same caption behaviour as T1.4 on the new footage — which proves the pipeline is general
+and not tuned to one clip.
 
 ```
 ```
 
 ---
 
-# T3 — The buttons (secondary, 15 min)
+# T3 — The buttons (secondary, ≈15 min)
 
-Every control has a tested backend; this is a smoke test that the UI honours it. **Auto-render is on**, so each click starts a render — wait for it, or the next click queues.
+Every control has a tested backend; this is a smoke test that the screen honours it. Each click starts a
+re-render, so wait for it (or the next click queues behind it).
 
 | # | Click | Expect |
 |---|---|---|
-| 1 | **Caption style → Phrase, active word highlighted** | whole phrase stays; the spoken word turns yellow and grows slightly |
-| 2 | **Caption style → One word at a time** | one word, larger |
-| 3 | **Font → Bebas Neue**, then **Montserrat** | visibly different faces, caption size unchanged |
-| 4 | **Sound → Raw audio**, listen | thinner, duller than before |
-| 5 | **Mumbles → Keep everything**, then back | slightly longer and rougher, then tighter again |
-| 6 | **Format → Horizontal 16:9** | frame becomes wide; a blue line explains the background was reset |
-| 7 | **Background → Blurred background** (while horizontal) | refused with the reason; it does not silently do nothing |
-| 8 | **Format → Vertical 9:16** + **Background → Studio look** | full frame fitted over a blurred copy, slightly vignetted |
-| 9 | **Window → a grey time button**, then **a gold ★ button** | the window changes instantly, a render starts, the video becomes that passage |
-| 10 | **Suggest windows with AI** | the agent proposes windows; ★ buttons appear (approvals required) |
-| 11 | **Plan cuts with AI** | the agent rewrites the cut plan for the current window and re-renders |
+| 1 | **One word at a time**, then **Phrase, active word highlighted** | one word larger; then the whole phrase with the spoken word highlighted |
+| 2 | **Font → Bebas Neue**, then **Montserrat** | visibly different lettering, same size |
+| 3 | **Sound → Raw audio**, listen | thinner, duller |
+| 4 | **Mumbles → Keep everything**, then back | slightly longer and rougher, then tighter |
+| 5 | **Format → Horizontal 16:9** | the frame widens; a blue line says the background was reset |
+| 6 | **Background → Blurred background** while horizontal | refused, with the reason — not silently ignored |
+| 7 | **Format → Vertical 9:16** + **Background → Studio look** | the full frame fitted over a blurred copy, slightly vignetted |
+| 8 | **A grey time button**, then **a ★ button** | the passage changes straight away and a render starts |
+| 9 | **Suggest windows with AI** | the AI proposes passages; ★ buttons appear |
+| 10 | **Plan cuts with AI** | the AI rewrites the cut for the current passage and re-renders |
+| 11 | **Ask for a review** | it asks the AI about the current render |
+| 12 | **Replay**, then the bar under the player | the video replays; clicking jumps |
 
 > **Judge:** which of these felt like a real editor's control, and which felt like a debug switch?
 
@@ -309,34 +470,54 @@ Every control has a tested backend; this is a smoke test that the UI honours it.
 
 ---
 
-## What NOT to report as a bug
+# Part 7 — When something goes wrong
 
-| Known limitation | What you will see |
-|---|---|
-| **No final quality** | everything is a **540p preview**. No 1080p export, no SRT, no thumbnail, no upload |
-| **No trim-by-drag** | you pick a window; you do not drag in/out points |
-| **Graphics placement is fixed** | image notes: 32 % width, on the side away from your face, top corner. No size slider, no drag |
-| **No B-roll library** | you can point at files in `assets/`; there is no search or tagging |
-| **Instruction notes don't act** | they are stored for the agent, not applied by the renderer |
-| **Approval per command** | the macOS sandbox cannot start here; every command needs a click |
-| **Cut judgement is audio-only** | it hears stumbles and beats; it cannot tell whether a cut *looks* jumpy mid-gesture |
-| **Window suggestions are text-only** | the agent reads the transcript; it has not seen the frames |
-| **One video at a time** | no batch, no "three shorts from one long video" |
-| **One window at a time** | the pane edits a chosen passage. There is no "render the whole 20-minute interview in one file" control yet — and the server kills any render at 15 minutes, which is ~28 minutes of video |
-| **Long-form has never been tested end to end** | only 45–105 s passages have actually been rendered. The multi-window path exists on paper, not in evidence |
+| What you see | What is actually happening | What to do |
+|---|---|---|
+| **The page does not load** | the server is not running (Terminal closed, or the laptop slept) | run `./start.sh` again. If it says `Already running`, wait 10 s and reload |
+| **The page loads but there is no Studio tab** | you are on the session list, not inside a conversation | click a session, or **New session** and send a message |
+| **The Studio tab is blank** | stale page | `Cmd + Shift + R` |
+| **I dropped a video and nothing happened** | expected — nothing happens until you ask | say *"there's a new video in the incoming folder — prepare it"* |
+| **"Rendering…" never ends** | if the log is frozen, the render died | ask for a re-render, or click **Re-render**. A render is killed automatically after 15 minutes |
+| **A click does nothing while rendering** | only one render at a time | it says "Next render queued" — wait |
+| **The video is the old one after a change** | the player shows the newest render; the change may have queued behind it | wait, then **Replay** |
+| **It asks permission for every command** | this machine cannot run the AI's sandbox | approve it; and report it |
+| **It says a file is missing** | the project was never prepared, or the folder moved | ask it to check the project state first |
+| **A remark of mine was ignored** (Instruction note) | free-text notes are for the AI, not the renderer | say the same thing in the chat |
 
 ---
 
-## Report template
+# Part 8 — What NOT to report as a bug
+
+| Known limitation | What you will see |
+|---|---|
+| **No final quality** | everything is a small preview. No 1080p export, no subtitle file, no thumbnail, no uploading |
+| **No drag-to-trim** | you choose a passage; you cannot drag its in/out points |
+| **Graphics land where the AI decides** | 32 % of the width, on the side away from your face, top corner. No size slider, no drag |
+| **No B-roll library** | you can point it at files in `assets/`; there is no search or tagging |
+| **Instruction notes don't act by themselves** | they are stored for the AI, not applied by the renderer |
+| **Approval for every command** | this machine, not the product |
+| **Cutting is deaf to the picture** | it hears stumbles and beats; it cannot tell whether a cut *looks* jumpy mid-gesture |
+| **Passage suggestions are text-only** | the AI reads the transcript; it has not seen the frames |
+| **One video at a time** | no batch, no "three shorts from one long video" |
+| **One passage at a time** | no "render the whole 20-minute interview in one file"; a render is killed at 15 minutes (~28 minutes of video) |
+| **Long-form has never been tested end to end** | only 45–105 s passages have actually been rendered |
+
+---
+
+# Report template
 
 ```
-## Which track(s) I ran
-T1 / T2 / T3 (delete what does not apply)
+## Which parts I did
+Day 0 / T1 / T2 / T3   (delete what does not apply)
+
+## Getting it running
+- how long did Day 0 take? where did you get stuck, if anywhere?
 
 ## The conversation
-- Did the agent understand plain-language requests? where did it guess wrong?
-- Did it talk before acting when I asked it to?
+- Did the AI understand plain-language requests? where did it guess wrong?
 - Did it explain what it decided — readable, or jargon?
+- Did it talk before acting when you asked it to?
 
 ## The output (judge this, not the app)
 - T1.2 the cut:
@@ -356,7 +537,7 @@ step | what I expected | what happened
 
 ## Speed and friction
 - how annoying were the approval prompts? (1 = fine, 5 = unusable)
-- was ~45 s per iteration on this preview path acceptable? what would you accept for a 2-minute window (~75 s)?
+- was ~45 s per iteration acceptable? what would you accept for a 2-minute passage (~75 s)?
 ```
 
 ---
@@ -365,9 +546,11 @@ step | what I expected | what happened
 
 | | |
 |---|---|
-| T1 layers | ~45 min (≈45 s per re-render) |
-| T2 from raw | ~50 min (≈5 min preparation for a short clip) |
-| T3 buttons | ~15 min |
-| **Total** | **under two hours** |
+| Day 0 — get it running and look at the editor | 10 min |
+| T1 — the layers on prepared footage | ~45 min (≈45 s per re-render) |
+| T2 — from raw footage | ~50 min (≈5 min preparation for a short clip) |
+| T3 — the buttons | ~15 min |
+| **Total** | **under two hours**, splittable |
 
-Split it: T1 in one sitting, T2 in another.
+Do Day 0 and T1 in one sitting, T2 in another. If T1 already convinces you the editing is bad, say so —
+that is a result, not a wrong test.

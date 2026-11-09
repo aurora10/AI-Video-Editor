@@ -526,8 +526,10 @@ export function StudioView(props: StudioViewProps) {
           </div>
         ))}
         <div className="note">
-          Changes apply on the next render. Timeline scrubbing, point-and-instruct notes and drag
-          editing arrive with the overlay editor.
+          Changes apply on the next render. Click the bar under the player to jump, drag across it to
+          select a passage, then leave a note from the composer. Free-text instructions are handed to
+          the agent, not applied by the renderer; dragging captions and graphics comes with the
+          overlay editor.
         </div>
       </div>
     </div>
