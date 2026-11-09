@@ -66,10 +66,33 @@ So your iteration cost is set by the passage you are fixing, not by how long the
 20-minute interview in 60-second windows costs the same per iteration as editing a 1-minute clip.
 
 **Preparation is the expensive part, and it does scale with the source.** Measured: 8 minutes of
-4K60 phone footage took **33 minutes** to prepare (0.24× realtime — the decoder, not our code). So a
-2-minute 4K clip is ~8 minutes; a 30-minute one is ~2 hours. Nobody has measured a 1080p source here
-yet, so I will not claim a number for it — it should be much cheaper, and that is worth measuring when
-you have one.
+4K60 phone footage took **33 minutes** to prepare (0.24× realtime — the decoder, not our code).
+
+Why, and what to do about it. Decode-only, same 30 seconds of footage, on this machine:
+
+| source | decodes at | 2 min source | 30 min source |
+|---|---|---|---|
+| **4K60 HEVC** (typical phone) | **0.29× realtime** | ~7 min | ~1 h 45 min |
+| 4K60 H.264 | 2.9× realtime | ~40 s | ~10 min |
+| 1080p60 HEVC | 6.3× realtime | ~20 s | ~5 min |
+| **1080p60 H.264** | **10.9× realtime** | ~11 s | **~3 min** |
+
+So the wait is not "your laptop is slow" in general — it is this 2012 chip having **no HEVC decoder in
+silicon** (its hardware video engine only knows H.264, and VideoToolbox measured *slower* than software
+here, so there is no hardware path to fall back on). Four times the pixels and a much harder codec,
+decoded on the CPU, gives the ~37× spread above.
+
+**The practical fix costs nothing:** export the clip as **1080p H.264** before dropping it in the folder
+(on an iPhone: Settings → Camera → Formats → Most Compatible, then export from Photos at 1080p). A
+30-minute source then prepares in about three minutes instead of two hours, and the edit loop — which
+works from the 540p proxy — is unaffected. Keep the original 4K file for the final render.
+
+Two caveats so this table is not over-read: my test variants were encoded at `ultrafast`, so real
+camera H.264 decodes somewhat slower than the line above; and these are 30-second slices, while
+preparation also scales and encodes its proxies (a further ~10–20 %).
+
+**Preparation is paid once per file, not per edit** — the proxies are cached, which is why the edit
+loop stays fast.
 
 One thing that does **not** exist yet: the final 1080p render from the 4K master. That will be
 decode-bound like preparation (~4× the program length), which is why it is on the list below rather
@@ -219,7 +242,9 @@ Drop a raw video into:
 studio/fixtures/incoming/
 ```
 
-**Use a short clip** (1–3 minutes) if you have one: preparation drops from ~40 minutes to ~5.
+**Use a short clip** if you have one, and export it as 1080p H.264 (see §0.4): a 1-minute 4K60 HEVC
+clip costs ~4 minutes of preparation, a 3-minute one ~12 minutes, but the same clips as 1080p H.264
+cost well under a minute each.
 
 ## T2.2 — The first real request
 

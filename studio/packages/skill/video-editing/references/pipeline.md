@@ -10,7 +10,22 @@ pnpm ingest fixtures/incoming/<file> --project <slug>
 
 Slug is the project id you will use in every later command; derive it from the file name.
 
-**Expect** (≈35–45 min for 8 minutes of 4K60 on this machine, because the 4K decode is the cost):
+**Warn about the wait before it starts, not after.** Preparation is decode-bound, and the codec decides
+everything (measured here, decode-only):
+
+| source | decodes at | 30-minute source |
+|---|---|---|
+| 4K60 HEVC (typical phone default) | 0.29× realtime | ~1 h 45 min |
+| 4K60 H.264 | 2.9× | ~10 min |
+| 1080p60 HEVC | 6.3× | ~5 min |
+| 1080p60 H.264 | 10.9× | ~3 min |
+
+So: probe first (it is instant), quote the estimate in plain words, and if the file is long and HEVC,
+say **"a 1080p H.264 export of this would prepare in about N minutes instead of M hours; the editing
+itself is unchanged"** and let the user decide. This machine has no HEVC decoder in silicon
+(MacBookPro10,1), which is why the HEVC column is brutal — do not present it as a bug in the tool.
+
+**Expect** (≈33 min for 8 minutes of 4K60 HEVC on this machine):
 
 ```
 probe

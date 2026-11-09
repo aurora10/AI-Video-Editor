@@ -70,6 +70,39 @@ Two consequences worth remembering:
 Also recorded as a limit: the server kills any render at 15 minutes, i.e. roughly 28 minutes of video,
 so "render the whole long-form in one file" is not a thing yet.
 
+### Why preparation is slow, and what to do about it (session 16)
+
+The owner asked the right question: "is that a hardware limitation of my laptop?" Mostly yes, and the
+measurement says exactly which part.
+
+Machine: `MacBookPro10,1`, i7-3720QM (Ivy Bridge, 2012), 8 GB. Decode-only, 30 s slices, same footage:
+
+| source | decode speed | 2 min source | 30 min source |
+|---|---|---|---|
+| 4K60 HEVC (phone default) | **0.29× realtime** | ~7 min | ~1 h 45 min |
+| 4K60 H.264 | 2.9× | ~40 s | ~10 min |
+| 1080p60 HEVC | 6.3× | ~20 s | ~5 min |
+| 1080p60 H.264 | **10.9×** | ~11 s | **~3 min** |
+
+Software decode of the original: 30 s in 103 s. `-hwaccel videotoolbox` on the same slice: **125 s** —
+slower, and with 11 s of user CPU instead of 138 s, i.e. it handed the work to the OS and the OS had no
+silicon to hand it to. That is the hardware limitation stated precisely: **Ivy Bridge's video engine
+knows H.264 only; this Mac has no HEVC decoder in silicon**, so a codec that every modern phone shoots
+by default falls back to CPU software decode at a quarter of realtime.
+
+The fix needs no new laptop: 1080p H.264 decodes ~37× faster than 4K60 HEVC here, turning a 2-hour
+preparation into ~3 minutes for the same content. The editor then works from the 540p proxy, so
+nothing downstream changes; the 4K original stays available for a final master.
+
+Honest caveats: my variants were encoded `ultrafast`, so a real camera H.264 file decodes slower than
+the table; slices were 30 s; and preparation also scales to 540p and encodes its proxies (~10–20 %
+more). A newer Mac would solve it differently — Apple Silicon has HEVC decode in silicon, so 4K60 HEVC
+preparation there is minutes, not hours — but the codec choice makes this laptop usable today, which
+matters more than the ideal machine.
+
+Consequence for the product, not just for me: **ingest should tell the user this before they wait.**
+The prepared path is fine; the advice is worth as much as the code.
+
 ## Gates
 
 | Step | State | Verification | Notes |
