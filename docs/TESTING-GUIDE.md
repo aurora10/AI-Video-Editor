@@ -66,7 +66,9 @@ So your iteration cost is set by the passage you are fixing, not by how long the
 20-minute interview in 60-second windows costs the same per iteration as editing a 1-minute clip.
 
 **Preparation is the expensive part, and it does scale with the source.** Measured: 8 minutes of
-4K60 phone footage took **33 minutes** to prepare (0.24× realtime — the decoder, not our code).
+4K60 phone footage took **33 minutes** to prepare — 0.24× realtime for the whole preparation step
+(0.29× for decode alone; the rest is scaling and encoding the proxies), so it is the decoder's cost,
+not the code.
 
 Why, and what to do about it. Decode-only, same 30 seconds of footage, on this machine:
 
@@ -232,7 +234,8 @@ Now test the review loop itself, which is the reason the pane exists.
 
 # T2 — From raw footage (the real first day)
 
-Run this once. It is slow because 4K takes ~40 minutes to prepare — that is the honest cost of this machine.
+Run this once. It is slow only because of 4K HEVC: 8 minutes of it takes ~33 minutes to prepare on this
+machine, or ~3 minutes if you export 1080p H.264 first (§0.4).
 
 ## T2.1 — Put the file where the system expects it
 
